@@ -279,8 +279,8 @@ def webhook(token):
     except Exception:
         import traceback
 
-        traceback.print_exc()
-        print(f"FEED FAILED: update_id={update.update_id}", flush=True)
+        exc = traceback.format_exc()
+        print(f"FEED FAILED: update_id={update.update_id}\n{exc}", flush=True)
     return "ok", 200
 
 
