@@ -292,24 +292,32 @@ def debug_net():
 def webhook(token):
     if not WEBHOOK_SECRET or token != WEBHOOK_SECRET:
         return "forbidden", 403
-    _ensure_aiogram()
-    if not _dp or not _bot or not _loop:
-        return "ok", 200
-    from aiogram.types import Update
+    import traceback
 
-    update = Update.model_validate(request.get_json(force=True))
-    print(f"WEBHOOK HIT: update_id={update.update_id} chat={update.message.chat.id if update.message else '?'}", flush=True)
-    fut = asyncio.run_coroutine_threadsafe(
-        _dp.feed_webhook_update(_bot, update), _loop
-    )
     try:
-        fut.result(timeout=30)
-        print(f"FEED OK: update_id={update.update_id}", flush=True)
-    except Exception:
-        import traceback
+        _ensure_aiogram()
+        if not _dp or not _bot or not _loop:
+            print("WEBHOOK: aiogram not ready", flush=True)
+            return "ok", 200
+        from aiogram.types import Update
 
+        update = Update.model_validate(request.get_json(force=True))
+        print(
+            f"WEBHOOK HIT: update_id={update.update_id} chat={update.message.chat.id if update.message else '?'}",
+            flush=True,
+        )
+        fut = asyncio.run_coroutine_threadsafe(
+            _dp.feed_webhook_update(_bot, update), _loop
+        )
+        try:
+            fut.result(timeout=30)
+            print(f"FEED OK: update_id={update.update_id}", flush=True)
+        except Exception:
+            exc = traceback.format_exc()
+            print(f"FEED FAILED: update_id={update.update_id}\n{exc}", flush=True)
+    except Exception:
         exc = traceback.format_exc()
-        print(f"FEED FAILED: update_id={update.update_id}\n{exc}", flush=True)
+        print(f"WEBHOOK ROUTE ERROR:\n{exc}", flush=True)
     return "ok", 200
 
 
