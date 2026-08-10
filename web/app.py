@@ -137,23 +137,38 @@ def _ensure_aiogram():
         if _aiogram_ready:
             return
         import handlers
+        from aiohttp import ClientSession
+        from aiohttp.hdrs import USER_AGENT
+        from aiohttp.http import SERVER_SOFTWARE
         from aiogram import Bot, Dispatcher
         from aiogram.client.default import DefaultBotProperties
         from aiogram.client.session.aiohttp import AiohttpSession
         from aiogram.enums import ParseMode
 
+        class EnvProxySession(AiohttpSession):
+            async def create_session(self) -> ClientSession:
+                if self._should_reset_connector:
+                    await self.close()
+                if self._session is None or self._session.closed:
+                    from aiogram.__meta__ import __version__
+
+                    self._session = ClientSession(
+                        connector=self._connector_type(**self._connector_init),
+                        headers={
+                            USER_AGENT: f"{SERVER_SOFTWARE} aiogram/{__version__}",
+                        },
+                        trust_env=True,
+                    )
+                    self._should_reset_connector = False
+                return self._session
+
         _loop = asyncio.new_event_loop()
         threading.Thread(target=_loop.run_forever, daemon=True).start()
-
-        async def _build_bot():
-            session = AiohttpSession(trust_env=True)
-            return Bot(
-                token=BOT_TOKEN,
-                session=session,
-                default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
-            )
-
-        _bot = asyncio.run_coroutine_threadsafe(_build_bot(), _loop).result(timeout=30)
+        _bot = Bot(
+            token=BOT_TOKEN,
+            session=EnvProxySession(),
+            default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+        )
         _dp = Dispatcher()
         _dp.include_router(handlers.router)
         _aiogram_ready = True
