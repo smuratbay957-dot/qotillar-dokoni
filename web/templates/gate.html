@@ -27,6 +27,16 @@
       {% endwith %}
     </div>
 
+    {% if session.get("pending_admin") %}
+    <form method="post" action="{{ url_for('admin_verify') }}" class="gate-form" autocomplete="off">
+      <label class="field-label" for="password2">&gt;&gt; 2-QADAM: ADMIN PAROL</label>
+      <div class="input-row">
+        <input type="password" id="password2" name="password2" placeholder="SECOND_PASSWORD" autocomplete="off" spellcheck="false" required>
+        <button type="submit" class="btn btn-primary">VERIFY</button>
+      </div>
+    </form>
+    <p class="hint">Bekor qilish uchun <a href="{{ url_for('logout') }}">shu yerga bosing</a>.</p>
+    {% else %}
     <form method="post" action="{{ url_for('login') }}" class="gate-form" autocomplete="off">
       <label class="field-label" for="code">&gt;&gt; KIRISH KODINGIZNI KIRITING</label>
       <div class="input-row">
@@ -35,6 +45,7 @@
       </div>
     </form>
     <p class="hint">Kodingiz bo'lmasa -- ichkariga kira olmaysiz.</p>
+    {% endif %}
   </section>
 
   <footer class="disclaimer">

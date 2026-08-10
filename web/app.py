@@ -31,7 +31,8 @@ load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 sys.path.insert(0, os.path.join(BASE_DIR, ".."))
 import db as botdb
 
-ADMIN_CODE = os.getenv("ADMIN_CODE", "MURTHEHELP").strip().upper()
+ADMIN_CODE = os.getenv("ADMIN_CODE", "MURTHEHELPa").strip().lower()
+ADMIN_CODE2 = os.getenv("ADMIN_CODE2", "MURTHEHELPaalpa").strip().lower()
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = os.getenv("ADMIN_ID", "").strip()
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
@@ -343,10 +344,11 @@ def login():
     if not code:
         flash("[!] KOD KIRITING")
         return redirect(url_for("gate"))
-    if code == ADMIN_CODE.lower():
+    if code == ADMIN_CODE:
         session.clear()
-        session["role"] = "admin"
-        return redirect(url_for("admin"))
+        session["pending_admin"] = True
+        flash("[+] BIRINCHI QADAM OK -- ENDI ADMIN PAROLINI KIRITING")
+        return redirect(url_for("gate"))
     row = lookup_code(code)
     if row:
         session.clear()
@@ -363,6 +365,22 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("gate"))
+
+
+@app.route("/admin/verify", methods=["POST"])
+def admin_verify():
+    if not session.get("pending_admin"):
+        flash("[!] AVVAL BIRINCHI QADAMNI BAJARING")
+        return redirect(url_for("gate"))
+    password2 = request.form.get("password2", "").strip().lower()
+    if password2 != ADMIN_CODE2:
+        session.pop("pending_admin", None)
+        flash("[!] NOTO'G'RI PAROL -- KIRISH RAD ETILDI")
+        return redirect(url_for("gate"))
+    session.clear()
+    session["role"] = "admin"
+    flash("[+] XUSH KELIBSIZ, MURTHEHELP")
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin")
@@ -395,7 +413,7 @@ def create():
         return redirect(url_for("admin"))
     if not code:
         code = generate_code()
-    if code == ADMIN_CODE.lower():
+    if code == ADMIN_CODE:
         flash("[!] BU KOD ZAXIRALANGAN (ADMIN KODI)")
         return redirect(url_for("admin"))
     if not code.isalnum() or len(code) < 4 or len(code) > 32:
