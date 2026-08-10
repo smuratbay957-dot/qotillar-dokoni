@@ -139,12 +139,15 @@ def _ensure_aiogram():
         import handlers
         from aiogram import Bot, Dispatcher
         from aiogram.client.default import DefaultBotProperties
+        from aiogram.client.session.aiohttp import AiohttpSession
         from aiogram.enums import ParseMode
 
         _loop = asyncio.new_event_loop()
         threading.Thread(target=_loop.run_forever, daemon=True).start()
+        session = AiohttpSession(trust_env=True)
         _bot = Bot(
             token=BOT_TOKEN,
+            session=session,
             default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
         )
         _dp = Dispatcher()
