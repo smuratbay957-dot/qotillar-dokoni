@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block bodyclass %}gate-body{% endblock %}
+{% block content %}
+<main class="gate">
+  <header class="topbar gate-topbar">
+    <span class="status">SYS.ONLINE // FAN-REMAKE</span>
+    <span class="status">v1.0</span>
+  </header>
+
+  <section class="gate-inner">
+    <div class="logo">
+      <h1 class="logo-main" data-text="MURTHEHELP">MURTHEHELP</h1>
+      <p class="logo-sub">// A SHOP FOR KILLERS // FAN PROJECT //</p>
+    </div>
+
+    <div class="shutter">
+      <div class="shutter-bar">
+        <span class="shutter-text">!!! SAVDO VAQTINCHA YOPIQ !!!</span>
+      </div>
+      <div class="shutter-sub">MARKET CLOSED FOR TRADING</div>
+      <div class="shutter-lines">___________________________________________</div>
+    </div>
+
+    <div class="flash">
+      {% with messages = get_flashed_messages() %}
+        {% for m in messages %}<p class="flash-msg">{{ m }}</p>{% endfor %}
+      {% endwith %}
+    </div>
+
+    <form method="post" action="{{ url_for('login') }}" class="gate-form" autocomplete="off">
+      <label class="field-label" for="code">&gt;&gt; KIRISH KODINGIZNI KIRITING</label>
+      <div class="input-row">
+        <input type="text" id="code" name="code" placeholder="ACCESS_CODE" autocomplete="off" spellcheck="false" required>
+        <button type="submit" class="btn btn-primary">ENTER</button>
+      </div>
+    </form>
+    <p class="hint">Kodingiz bo'lmasa -- ichkariga kira olmaysiz.</p>
+  </section>
+
+  <footer class="disclaimer">
+    [!] SOXTA O'YIN SAYTI -- "A SHOP FOR KILLERS" KINOSI ASOSIDA YARATILGAN.<br>
+    HAQIQIY SAVDO, QUROL YOKI ZO'RAVLONLIK YO'Q. FAQAT KO'NGIL OCHISH UCHUN.
+  </footer>
+</main>
+{% endblock %}

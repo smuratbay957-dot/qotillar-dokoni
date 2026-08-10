@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block bodyclass %}admin-body{% endblock %}
+{% block title %}ADMIN // MURTHEHELP{% endblock %}
+{% block content %}
+<main class="panel">
+  <header class="topbar">
+    <span class="status">ADMIN // KOD YARATISH MODULI</span>
+    <a class="btn btn-ghost" href="{{ url_for('logout') }}">CHIQISH</a>
+  </header>
+
+  <div class="flash">
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}<p class="flash-msg">{{ m }}</p>{% endfor %}
+    {% endwith %}
+  </div>
+
+  <section class="card create-card">
+    <h2 class="card-title">// YANGI KOD YARATISH</h2>
+    <p class="hint">Kod oxiriga <code>VIPCode</code> qo'shsangiz (masalan <code>asdajdashVIPCode</code>) -- avtomatik VIP kod bo'ladi, xaridga chegirma beradi.</p>
+    <form method="post" action="{{ url_for('create') }}" class="create-form">
+      <div class="color-picker">
+        {% for c in colors %}
+        {% set meta = color_meta[c] %}
+        <label class="color-option" style="--acc: {{ meta.hex }}">
+          <input type="radio" name="color" value="{{ c }}" {% if loop.first %}checked{% endif %}>
+          <span class="color-swatch"></span>
+          <span class="color-name">{{ meta.label }}<small>{{ meta.sub }}</small></span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="field">
+        <label for="new-code">KOD (bo'sh qoldirsangiz -- avtomatik yaratiladi)</label>
+        <div class="input-row">
+          <input type="text" id="new-code" name="code" placeholder="ghjagsyufuaasdf" autocomplete="off" spellcheck="false">
+          <button type="button" class="btn btn-ghost" id="gen-btn">RANDOM</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="note">IZOH (ixtiyoriy)</label>
+        <input type="text" id="note" name="note" placeholder="masalan: do'stim uchun">
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">[ + ] KODNI YARATISH</button>
+    </form>
+  </section>
+
+  <section class="card orders-card">
+    <h2 class="card-title">// XARID SOROVLARI ({{ orders|length }})</h2>
+    {% if orders %}
+    <div class="order-list">
+      {% for o in orders %}
+      {% set meta = color_meta[o.color] %}
+      <div class="order-row" style="--acc: {{ meta.hex }}">
+        <div class="order-head">
+          <span class="order-id">BUYURTMA #{{ o.id }}</span>
+          <span class="order-status status-{{ o.status }}">{{ {"pending": "KUTILYAPTI", "answered": "JAVOB BERILDI", "sold": "SOTILDI"}[o.status] }}</span>
+        </div>
+        <div class="order-product">{{ o.name }} -- {{ o.base_price }} KREDIT {% if o.vip %}<span class="vip-badge">VIP</span>{% endif %}</div>
+        <div class="order-meta">KOD: <code>{{ o.code }}</code> {% if o.user_id %} // TG ULANGAN{% else %} // TG ULANGAN EMAS{% endif %}</div>
+        <div class="order-msg">XARIDOR: {{ o.message }}</div>
+        {% if o.status == "pending" %}
+        <form method="post" action="{{ url_for('order_reply', oid=o.id) }}" class="reply-form">
+          <div class="input-row">
+            <input type="number" name="final_price" placeholder="NARX (kredit)" required>
+            <button type="submit" class="btn btn-primary">JAVOB</button>
+          </div>
+          <textarea name="answer" rows="2" placeholder="Javob matni, masalan: 1000 kreditga olasiz"></textarea>
+        </form>
+        {% else %}
+        <div class="order-answer">
+          {% if o.answer %}JAVOB: {{ o.answer }}<br>{% endif %}
+          YAKUNIY NARX: {{ o.final_price }} KREDIT
+        </div>
+        {% endif %}
+        <div class="order-date">{{ o.created_at }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">Hali hech qanday xarid sorovi yo'q.</p>
+    {% endif %}
+  </section>
+
+  <section class="card list-card">
+    <h2 class="card-title">// MAVJUD KODLAR ({{ codes|length }})</h2>
+    {% if codes %}
+    <div class="code-list">
+      {% for row in codes %}
+      {% set meta = color_meta[row.color] %}
+      <div class="code-row" style="--acc: {{ meta.hex }}">
+        <span class="code-chip">{{ meta.label }}</span>
+        {% if row.code.endswith('vipcode') %}<span class="vip-badge">VIP</span>{% endif %}
+        <code class="code-value">{{ row.code }}</code>
+        <span class="code-note">{{ row.note }}</span>
+        {% if row.uname %}
+        <span class="code-link" title="Telegram bot'ga ulangan">TG: {{ row.uname }} ({{ row.balance }})</span>
+        {% else %}
+        <span class="code-unlinked">BOT'GA ULANGAN EMAS</span>
+        {% endif %}
+        <form method="post" action="{{ url_for('revoke', cid=row.id) }}">
+          <button type="submit" class="btn btn-danger btn-sm">O'CHIRISH</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">Hali hech qanday kod yaratilmagan.</p>
+    {% endif %}
+  </section>
+
+  <footer class="disclaimer">[!] BARCHA KODLAR SOXTA O'YIN UCHUN -- FAQAT KO'NGIL OCHISH!</footer>
+</main>
+{% endblock %}

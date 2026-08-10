@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+.env
+web/secret.key
+.DS_Store

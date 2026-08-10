@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block bodyclass %}shop-body{% endblock %}
+{% block title %}{{ meta.label }} // MURTHEHELP{% endblock %}
+{% block content %}
+<main class="panel shop">
+  <header class="topbar">
+    <span class="status">MURTHEHELP // {{ meta.label }}</span>
+    <a class="btn btn-ghost" href="{{ url_for('logout') }}">CHIQISH</a>
+  </header>
+
+  <section class="access-card" style="--acc: {{ meta.hex }}">
+    <div>
+      <p class="access-label">ACCESS GRANTED</p>
+      <h2 class="access-title">{{ meta.label }}
+        {% if vip %}<span class="vip-badge">VIP</span>{% endif %}
+      </h2>
+      <p class="access-sub">{{ meta.sub }} // KOD: <code>{{ code }}</code></p>
+      {% if vip %}
+      <p class="access-vip">VIP CHEGIRMA: {{ vip_discount }}% faol</p>
+      {% endif %}
+      {% if balance is not none %}
+      <p class="access-balance">BALANS: {{ balance }} KREDIT</p>
+      {% endif %}
+    </div>
+    <div class="access-stamp">OPEN</div>
+  </section>
+
+  <div class="flash">
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}<p class="flash-msg">{{ m }}</p>{% endfor %}
+    {% endwith %}
+  </div>
+
+  <section class="card">
+    <h2 class="card-title">// SIZNING TARIFINGIZ BO'YICHA MAVJUD NARSALAR</h2>
+    <div class="product-grid">
+      {% for pid, p in products %}
+      <div class="product">
+        <div class="product-img">
+          <img src="{{ p.img }}" alt="{{ p.name }}" loading="lazy">
+          {% if vip %}<span class="vip-badge">VIP {{ vip_discount }}%</span>{% endif %}
+        </div>
+        <div class="product-name">{{ p.name }}</div>
+        <div class="product-price">{{ p.price }} KREDIT
+          {% if vip and p.orig > p.price %}<s class="old-price">{{ p.orig }} KREDIT</s>{% endif %}
+        </div>
+        <div class="product-desc">{{ p.desc }}</div>
+        <form method="post" action="{{ url_for('order') }}" class="buy-form">
+          <input type="hidden" name="pid" value="{{ pid }}">
+          <textarea name="message" rows="2" placeholder="Masalan: Bu mahsulotni olmoqchiman. Narxi qancha?" maxlength="300"></textarea>
+          <button type="submit" class="btn btn-buy">[ XARID SOROVINI YUBORISH ]</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="hint">
+      Tugmani bosgach so'rovingiz admin'ga boradi (sayt + Telegram bot). Admin narxni yozadi,
+      siz javobni saytda va bot'da ko'rasiz. Tasdiqlaganingizda mahsulot Telegram omboringizga tushadi.
+    </p>
+    <p class="hint"><a class="btn btn-ghost btn-sm" href="{{ url_for('orders') }}">[ BARCHA BUYURTMALARIM ]</a></p>
+    <p class="hint">BU YERDA HAQIQIY SAVDO YO'Q -- FAQAT KO'RINISH UCHUN.</p>
+  </section>
+
+  <footer class="disclaimer">
+    [!] SOXTA O'YIN -- HAQIQIY SAVDO YO'Q. FAQAT KO'NGIL OCHISH UCHUN.
+  </footer>
+</main>
+{% endblock %}

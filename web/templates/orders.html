@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block bodyclass %}shop-body{% endblock %}
+{% block title %}BUYURTMALAR // MURTHEHELP{% endblock %}
+{% block content %}
+<main class="panel shop">
+  <header class="topbar">
+    <span class="status">MURTHEHELP // BUYURTMALAR</span>
+    <a class="btn btn-ghost" href="{{ url_for('logout') }}">CHIQISH</a>
+  </header>
+
+  <div class="flash">
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}<p class="flash-msg">{{ m }}</p>{% endfor %}
+    {% endwith %}
+  </div>
+
+  <section class="card">
+    <h2 class="card-title">// MENING BUYURTMALARIM ({{ orders|length }})</h2>
+    {% if orders %}
+    <div class="order-list">
+      {% for o in orders %}
+      <div class="order-row" style="--acc: {{ color_meta[o.color].hex }}">
+        <div class="order-head">
+          <span class="order-id">BUYURTMA #{{ o.id }}</span>
+          <span class="order-status status-{{ o.status }}">{{ {"pending": "KUTILYAPTI", "answered": "JAVOB KELDI", "sold": "SOTIB OLINGAN"}[o.status] }}</span>
+        </div>
+        <div class="order-product">
+          {{ o.name }} -- <b>{{ o.final_price or o.base_price }} KREDIT</b>
+          {% if o.vip %}<span class="vip-badge">VIP</span>{% endif %}
+        </div>
+        <div class="order-msg">SIZ: {{ o.message }}</div>
+        {% if o.status == "answered" and o.answer %}
+        <div class="order-answer">ADMIN: {{ o.answer }}
+          <div class="order-price">YAKUNIY NARX: {{ o.final_price }} KREDIT</div>
+        </div>
+        <form method="post" action="{{ url_for('order_confirm', oid=o.id) }}">
+          <button type="submit" class="btn btn-buy">[ TASDIQLASH -- SOTIB OLISH ]</button>
+        </form>
+        {% endif %}
+        <div class="order-date">{{ o.created_at }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">Hali buyurtma yo'q. Do'kondan mahsulot tanlab sorov yuboring.</p>
+    {% endif %}
+    <p class="hint"><a class="btn btn-ghost btn-sm" href="{{ url_for('shop') }}">[ DO'KONGA QAYTISH ]</a></p>
+  </section>
+
+  <footer class="disclaimer">[!] SOXTA O'YIN -- FAQAT KO'NGIL OCHISH UCHUN.</footer>
+</main>
+{% endblock %}
