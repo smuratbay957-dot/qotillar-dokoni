@@ -94,6 +94,7 @@ async def ensure_registered(cb: CallbackQuery):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
+    print(f"START RECEIVED: from={message.from_user.id}", flush=True)
     db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
     user = db.get_user(message.from_user.id)
     if not user["code"]:

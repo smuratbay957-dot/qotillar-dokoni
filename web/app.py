@@ -150,6 +150,7 @@ def _ensure_aiogram():
         _dp = Dispatcher()
         _dp.include_router(handlers.router)
         _aiogram_ready = True
+        print("AIOGRAM READY: loop thread started", flush=True)
 
 
 def setup_webhook():
@@ -268,15 +269,18 @@ def webhook(token):
     from aiogram.types import Update
 
     update = Update.model_validate(request.get_json(force=True))
+    print(f"WEBHOOK HIT: update_id={update.update_id} chat={update.message.chat.id if update.message else '?'}", flush=True)
     fut = asyncio.run_coroutine_threadsafe(
         _dp.feed_webhook_update(_bot, update), _loop
     )
     try:
         fut.result(timeout=30)
+        print(f"FEED OK: update_id={update.update_id}", flush=True)
     except Exception:
         import traceback
 
         traceback.print_exc()
+        print(f"FEED FAILED: update_id={update.update_id}", flush=True)
     return "ok", 200
 
 
