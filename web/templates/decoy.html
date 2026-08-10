@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Shahar Axborot Portali</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; background: #f4f1ea; color: #2b2b2b; }
+    a { color: #1a5c8a; }
+
+    .sticker {
+      position: fixed; top: 10px; right: 12px; z-index: 999;
+      font-size: 20px; text-decoration: none; line-height: 1;
+      opacity: .18; cursor: pointer; transition: opacity .25s ease;
+    }
+    .sticker:hover, .sticker:focus { opacity: 1; }
+
+    header.site { background: #ffffff; border-bottom: 3px solid #1a5c8a; padding: 16px 24px; }
+    .brand { font-size: 22px; font-weight: bold; letter-spacing: 1px; }
+    .brand small { display: block; font-size: 11px; color: #888; font-weight: normal; }
+
+    nav { background: #1a5c8a; }
+    nav ul { list-style: none; display: flex; gap: 4px; padding: 0 12px; overflow-x: auto; }
+    nav a { display: block; color: #fff; padding: 10px 14px; text-decoration: none; font-size: 14px; white-space: nowrap; }
+    nav a:hover { background: #154a70; }
+
+    main { max-width: 860px; margin: 22px auto; padding: 0 16px; }
+    .headline { background: #fff; border: 1px solid #ddd; padding: 22px; margin-bottom: 18px; }
+    .headline h1 { font-size: 24px; margin-bottom: 8px; }
+    .headline p { color: #555; line-height: 1.6; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .card { background: #fff; border: 1px solid #ddd; padding: 14px; }
+    .card h2 { font-size: 16px; margin-bottom: 6px; }
+    .card p { color: #666; font-size: 14px; line-height: 1.5; }
+    .tag { font-size: 11px; color: #1a5c8a; text-transform: uppercase; letter-spacing: 1px; }
+
+    footer { background: #2b2b2b; color: #bbb; text-align: center; padding: 18px; font-size: 13px; margin-top: 26px; }
+  </style>
+</head>
+<body>
+  <a class="sticker" href="{{ url_for('gate') }}" title=".">🔫</a>
+
+  <header class="site">
+    <div class="brand">Shahar Axborot Portali<small>o'zbek tilidagi kunlik yangiliklar va maqolalar</small></div>
+  </header>
+
+  <nav>
+    <ul>
+      <li><a href="#">Bosh sahifa</a></li>
+      <li><a href="#">Jamiyat</a></li>
+      <li><a href="#">Iqtisodiyot</a></li>
+      <li><a href="#">Sport</a></li>
+      <li><a href="#">Madaniyat</a></li>
+      <li><a href="#">Texnologiya</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <section class="headline">
+      <span class="tag">Asosiy yangilik</span>
+      <h1>Shaharda ta'lim sohasida yangi loyiha start olindi</h1>
+      <p>Bugun shahar hokimligi tomonidan maktablar uchun yangi o'quv dasturlari taqdim etildi. Loyiha kelgusi yil davomida bosqichma-bosqich joriy etiladi.</p>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <span class="tag">Iqtisodiyot</span>
+        <h2>Pambodagi qishloq xo'jaligi ko'rgazmasi o'z ishini boshladi</h2>
+        <p>Ko'rgazmada mahalliy ishlab chiqaruvchilarning yangi mahsulotlari namoyish etilmoqda.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Sport</span>
+        <h2>Milliy terma jamoa navbatdagi o'yinga tayyorgarlikni davom ettirmoqda</h2>
+        <p>Murabbiylar shtabi yosh futbolchilarga katta umid bog'lamoqda.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Texnologiya</span>
+        <h2>Hududlarda internet tezligi sezilarli darajada oshirildi</h2>
+        <p>Operatorlar yil yakuniga qadar qo'shimcha stansiyalar o'rnatishni rejalashtirmoqda.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Jamiyat</span>
+        <h2>Kutubxonalarda bepul kurslar tashkil etilmoqda</h2>
+        <p>Har hafta yakshanba kunlari bolalar va kattalar uchun o'qish kechalari o'tkaziladi.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>&copy; 2026 Shahar Axborot Portali. Barcha huquqlar himoyalangan.</footer>
+</body>
+</html>

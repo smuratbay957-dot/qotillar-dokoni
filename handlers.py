@@ -69,9 +69,9 @@ def shop_menu_keyboard():
                     callback_data="tier:3",
                 )
             ],
-            [InlineKeyboardButton(text="📦 Katalog (mening kodim)", callback_data="catalog")],
-            [InlineKeyboardButton(text="🧾 Vitrin (boshqa sotuvchilar)", callback_data="vitrin")],
-            [InlineKeyboardButton(text="🛍️ Mahsulot sotish", callback_data="sell_help")],
+            [InlineKeyboardButton(text="✍️ Adminga yozish", callback_data="write_admin")],
+            [InlineKeyboardButton(text="📦 Buyurtma berish", callback_data="order_request")],
+            [InlineKeyboardButton(text="📦 Buyurtmalarim", callback_data="my_orders")],
             [InlineKeyboardButton(text="⬅️ Asosiy menyu", callback_data="menu")],
         ]
     )
@@ -307,13 +307,20 @@ async def cmd_kirish(message: Message):
         await message.answer(
             "🎫 Kod bilan kirish uchun:\n`/kirish <kod>`\n\n"
             "Misol:\n`/kirish ghjagsyufuaasdf`\n\n"
-            "Kodlarni admin web sayt orqali yaratadi."
+            "Kodlarni admin web sayt orqali yaratadi. Har bir kod faqat bir marta ishlatiladi."
         )
         return
     code = parts[1].strip().lower()
-    row = db.get_code(code)
-    if not row:
+    row = db.use_code(code, message.from_user.id)
+    if row is None:
         await message.answer("[!] Bunday kod topilmadi.\n\nKodlarni admin web saytda yaratadi. Kodingiz bo'lsa /kirish <kod> orqali kiring.")
+        return
+    if row is False:
+        await message.answer(
+            "⛔ *Bu kod allaqachon ishlatilgan!*\n\n"
+            "Har bir kod faqat bitta foydalanuvchiga tegishli bo'lishi mumkin. "
+            "Yangi kod uchun admin bilan bog'laning."
+        )
         return
     db.set_code(message.from_user.id, row["color"])
     user = db.get_user(message.from_user.id)
@@ -425,7 +432,7 @@ async def cb_tier(cb: CallbackQuery):
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=f"🛒 Sotib olish — {l['price']} 💰",
+                            text=f"📦 Buyurtma berish — {l['price']} 💰",
                             callback_data=f"buy:list:{l['id']}",
                         )
                     ]
@@ -468,7 +475,7 @@ async def cb_vitrin(cb: CallbackQuery):
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=f"🛒 Sotib olish — {l['price']} 💰",
+                            text=f"📦 Buyurtma berish — {l['price']} 💰",
                             callback_data=f"buy:list:{l['id']}",
                         )
                     ]
@@ -494,9 +501,8 @@ async def cb_sell_help(cb: CallbackQuery):
         "`2` -- Josus narsalari\n"
         "`3` -- Tozalash narsalar\n\n"
         "Misol:\n`/savdo ak47 2000 4 1`\n\n"
-        "Mahsulot bot'dagi Do'kon darajasida va 🧾 Vitrinda ko'rinadi, "
-        "boshqalar sotib olishi mumkin. Har sotuvda soni kamayadi, "
-        "kreditlar hisobingizga tushadi!",
+        "Mahsulot bot'dagi Do'kon darajasida ko'rinadi. Har buyurtma "
+        "tasdiqlanganda soni kamayadi, kreditlar hisobingizga tushadi!",
         reply_markup=back_to_shop_keyboard(),
     )
     await cb.answer()
@@ -598,25 +604,132 @@ async def cb_buy_listing(cb: CallbackQuery):
         await cb.answer("Bu mahsulot allaqachon sotilgan!", show_alert=True)
         return
     if listing["seller_id"] == cb.from_user.id:
-        await cb.answer("O'z mahsulotingizni sotib ololmaysiz!", show_alert=True)
+        await cb.answer("O'z mahsulotingizga buyurtma bera olmaysiz!", show_alert=True)
         return
-    if user["balance"] < listing["price"]:
-        await cb.answer("Kreditingiz yetarli emas!", show_alert=True)
-        return
-    db.spend(cb.from_user.id, listing["price"])
-    db.add_item(cb.from_user.id, f"listing:{lid}")
-    db.credit(listing["seller_id"], listing["price"])
-    state = db.decrement_stock(lid)
-    sold_out = bool(state and state["stock"] <= 0)
-    if sold_out:
-        db.close_listing(lid, cb.from_user.id)
-    await cb.answer("✅ Xarid muvaffaqiyatli!", show_alert=True)
+    oid = db.create_order(
+        user["code"],
+        user["code"],
+        cb.from_user.id,
+        f"listing:{lid}",
+        listing["name"],
+        "🧾 Do'kon buyurtmasi",
+        listing["price"],
+        0,
+    )
     try:
         await cb.bot.send_message(
-            listing["seller_id"],
-            f"🎉 Sizning *{listing['name']}* mahsulotingiz sotildi!\n"
-            f"Hisobingizga +{listing['price']} kredit tushdi."
-            + ("\n\n⚠️ Bu mahsulot *sotilib ketdi*!" if sold_out else ""),
+            ADMIN_ID,
+            f"[MURTHEHELP] YANGI BUYURTMA #{oid}\n"
+            f"Mahsulot: {listing['name']}\n"
+            f"Narx: {listing['price']} KREDIT\n"
+            f"Xaridor: @{cb.from_user.username or cb.from_user.first_name}\n"
+            f"Kod: {user['code']}\n"
+            "Tasdiq: sayt admin paneli.",
         )
     except Exception:
         pass
+    await cb.answer(
+        f"✅ Buyurtma #{oid} adminga yuborildi!\n"
+        "Admin tasdiqlagach mahsulot sotib olinadi, kredit hisobingizdan yechiladi.",
+        show_alert=True,
+    )
+
+
+PENDING_MSG = {}
+
+
+@router.callback_query(F.data == "write_admin")
+async def cb_write_admin(cb: CallbackQuery):
+    user = await ensure_registered(cb)
+    if not user:
+        return
+    PENDING_MSG[cb.from_user.id] = "admin"
+    await cb.message.edit_text(
+        "✍️ *ADMINGA YOZISH*\n\n"
+        "Endi xabaringizni yozib yuboring. Admin tez orada javob beradi.",
+        reply_markup=back_to_shop_keyboard(),
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "order_request")
+async def cb_order_request(cb: CallbackQuery):
+    user = await ensure_registered(cb)
+    if not user:
+        return
+    PENDING_MSG[cb.from_user.id] = "order"
+    await cb.message.edit_text(
+        "📦 *BUYURTMA BERISH*\n\n"
+        "Nima buyurtma qilmoqchisiz? Yozing.\n\n"
+        "Misol:\n`ak47 2000 kreditga olmoqchiman`",
+        reply_markup=back_to_shop_keyboard(),
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "my_orders")
+async def cb_my_orders(cb: CallbackQuery):
+    user = await ensure_registered(cb)
+    if not user:
+        return
+    orders = db.get_orders_by_code(user["code"])
+    if not orders:
+        text = "📦 *Buyurtmalaringiz bo'sh.*\n\nBuyurtma berish uchun do'konga kiring: /start"
+    else:
+        status_map = {"pending": "⏳ Kutilmoqda", "answered": "💬 Javob berildi", "sold": "✅ Sotildi"}
+        lines = ["📦 *Buyurtmalaringiz:*\n"]
+        for o in orders[:10]:
+            lines.append(
+                f"#{o['id']} {o['name']} -- {o['final_price'] or o['base_price']} KREDIT\n"
+                f"  {status_map.get(o['status'], o['status'])}"
+            )
+        text = "\n".join(lines)
+    await cb.message.edit_text(text, reply_markup=back_to_shop_keyboard())
+    await cb.answer()
+
+
+@router.message(F.text)
+async def handle_user_text(message: Message):
+    db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
+    state = PENDING_MSG.pop(message.from_user.id, None)
+    if state == "admin":
+        try:
+            await message.bot.send_message(
+                ADMIN_ID,
+                f"✍️ [XARIDOR → ADMIN]\n"
+                f"@{message.from_user.username or message.from_user.first_name}\n"
+                f"Telegram ID: {message.from_user.id}\n\n"
+                f"{message.text}",
+            )
+        except Exception:
+            pass
+        await message.answer("✅ Xabaringiz adminga yuborildi!\n\nJavobini kuting.")
+    elif state == "order":
+        user = db.get_user(message.from_user.id)
+        if not user or not user["code"]:
+            await message.answer("Avval kod tanlang! /start bosing.")
+            return
+        oid = db.create_order(
+            user["code"],
+            user["code"],
+            message.from_user.id,
+            "custom",
+            "📦 Maxsus buyurtma",
+            message.text,
+            0,
+            0,
+        )
+        try:
+            await message.bot.send_message(
+                ADMIN_ID,
+                f"[MURTHEHELP] YANGI BUYURTMA #{oid} (MAXSUS)\n"
+                f"Xaridor: @{message.from_user.username or message.from_user.first_name}\n"
+                f"Telegram ID: {message.from_user.id}\n"
+                f"Kod: {user['code']}\n\n"
+                f"So'rov: {message.text}",
+            )
+        except Exception:
+            pass
+        await message.answer(
+            f"✅ Buyurtma #{oid} adminga yuborildi!\n\nAdmin javobini kuting."
+        )

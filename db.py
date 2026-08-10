@@ -67,10 +67,15 @@ def init_db():
                 code TEXT UNIQUE NOT NULL,
                 color TEXT NOT NULL,
                 note TEXT DEFAULT '',
+                used_by INTEGER DEFAULT NULL,
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE codes ADD COLUMN used_by INTEGER DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS orders (
@@ -243,10 +248,32 @@ def get_code(code):
     return dict(row) if row else None
 
 
+def use_code(code, user_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code, color, note, used_by FROM codes WHERE code = ?",
+            (code,),
+        ).fetchone()
+        if not row:
+            return None
+        if row["used_by"] is not None and row["used_by"] != user_id:
+            return False
+        conn.execute(
+            "UPDATE codes SET used_by = ? WHERE code = ?",
+            (user_id, code),
+        )
+    return {"code": row["code"], "color": row["color"], "note": row["note"]}
+
+
 def get_user_by_code(code):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT user_id, name, code, balance FROM users WHERE code = ?",
+            """
+            SELECT u.user_id, u.name, u.code, u.balance
+            FROM codes c
+            JOIN users u ON u.user_id = c.used_by
+            WHERE c.code = ?
+            """,
             (code,),
         ).fetchone()
     return dict(row) if row else None
@@ -314,3 +341,26 @@ def confirm_order(order_id):
             "UPDATE orders SET status = 'sold' WHERE id = ?",
             (order_id,),
         )
+
+
+def complete_listing_order(order, price):
+    try:
+        lid = int(order["pid"].split(":", 1)[1])
+    except (ValueError, IndexError):
+        return False, "noto'g'ri buyurtma"
+    listing = get_listing(lid)
+    if not listing or listing["status"] != "active":
+        return False, "mahsulot sotilib bo'lgan"
+    user = get_user(order["user_id"])
+    if not user:
+        return False, "xaridor topilmadi"
+    if user["balance"] < price:
+        return False, "xaridorda kredit yetarli emas"
+    spend(order["user_id"], price)
+    add_item(order["user_id"], f"listing:{lid}")
+    credit(listing["seller_id"], price)
+    state = decrement_stock(lid)
+    if state and state["stock"] <= 0:
+        close_listing(lid, order["user_id"])
+    confirm_order(order["id"])
+    return True, listing["name"]

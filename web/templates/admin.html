@@ -61,6 +61,12 @@
         <div class="order-meta">KOD: <code>{{ o.code }}</code> {% if o.user_id %} // TG ULANGAN{% else %} // TG ULANGAN EMAS{% endif %}</div>
         <div class="order-msg">XARIDOR: {{ o.message }}</div>
         {% if o.status == "pending" %}
+        {% if o.pid.startswith('listing:') %}
+        <form method="post" action="{{ url_for('admin_confirm_order', oid=o.id) }}" class="reply-form">
+          <button type="submit" class="btn btn-buy">[ TASDIQLASH -- SOTIB BERISH ]</button>
+        </form>
+        <div class="order-answer">NARX: {{ o.base_price }} KREDIT. Tugma bosilganda xaridor kreditlari yechiladi va mahsulot yetkaziladi.</div>
+        {% else %}
         <form method="post" action="{{ url_for('order_reply', oid=o.id) }}" class="reply-form">
           <div class="input-row">
             <input type="number" name="final_price" placeholder="NARX (kredit)" required>
@@ -68,6 +74,7 @@
           </div>
           <textarea name="answer" rows="2" placeholder="Javob matni, masalan: 1000 kreditga olasiz"></textarea>
         </form>
+        {% endif %}
         {% else %}
         <div class="order-answer">
           {% if o.answer %}JAVOB: {{ o.answer }}<br>{% endif %}

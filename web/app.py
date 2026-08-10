@@ -264,6 +264,11 @@ def inject_globals():
 
 
 @app.route("/")
+def decoy():
+    return render_template("decoy.html")
+
+
+@app.route("/gate")
 def gate():
     return render_template("gate.html")
 
@@ -356,6 +361,8 @@ def login():
         session["code"] = row["code"]
         session["color"] = row["color"]
         session["vip"] = is_vip(row["code"])
+        u = botdb.get_user_by_code(code)
+        session["user_id"] = u["user_id"] if u else None
         return redirect(url_for("shop"))
     flash("[!] NOTO'G'RI KOD -- KIRISH RAD ETILDI")
     return redirect(url_for("gate"))
@@ -393,7 +400,7 @@ def admin():
             SELECT c.id, c.code, c.color, c.note, c.created_at,
                    u.name AS uname, u.balance
             FROM codes c
-            LEFT JOIN users u ON u.code = c.code
+            LEFT JOIN users u ON u.user_id = c.used_by
             ORDER BY c.id DESC
             """
         ).fetchall()
@@ -560,12 +567,27 @@ def order_confirm(oid):
         return redirect(url_for("orders"))
     linked = botdb.get_user_by_code(session.get("code"))
     if not linked:
-        flash("[!] XARIDNI TASDIQLASH UCHUN AVVAL BOT'DA /kirish <kod> QILING.")
+        flash("[!] XARIDNI TASDIQLASH UCHUN AVVAL BOT'DA /kirish <kod> QILING. (BOT KODI FAQAT BIR MARTA ISHLATILADI)")
         return redirect(url_for("orders"))
     user = botdb.get_user(linked["user_id"])
     price = order["final_price"] or order["base_price"]
     if user["balance"] < price:
         flash(f"[!] KREDITINGIZ YETARLI EMAS. BALANS: {user['balance']}")
+        return redirect(url_for("orders"))
+    if order["pid"].startswith("listing:"):
+        order["user_id"] = linked["user_id"]
+        ok, name = botdb.complete_listing_order(order, price)
+        if not ok:
+            flash(f"[!] TASDIQLANMADI: {name}")
+            return redirect(url_for("orders"))
+        flash(f"[+] SOTIB OLINDI: {name} -- {price} KREDIT. TELEGRAM OMBORINGIZGA TUSHDI!")
+        tg_send(
+            ADMIN_ID,
+            f"[MURTHEHELP] Buyurtma #{oid} tasdiqlandi!\n"
+            f"Mahsulot: {name}\n"
+            f"Yakuniy narx: {price} KREDIT\n"
+            f"Xaridor kodi: {order['code']}",
+        )
         return redirect(url_for("orders"))
     botdb.spend(user["user_id"], price)
     botdb.add_item(user["user_id"], order["pid"])
@@ -596,35 +618,63 @@ def vitrin_buy(lid):
     if not listing or listing["status"] != "active":
         flash("[!] BU MAHSULOT ALLAQACHON SOTILGAN")
         return redirect(url_for("vitrin"))
-    linked = botdb.get_user_by_code(session.get("code"))
-    if not linked:
-        flash("[!] XARID QILISH UCHUN AVVAL BOT'DA /kirish <kod> QILING.")
-        return redirect(url_for("vitrin"))
-    user = botdb.get_user(linked["user_id"])
-    if user["balance"] < listing["price"]:
-        flash(f"[!] KREDITINGIZ YETARLI EMAS. BALANS: {user['balance']}")
-        return redirect(url_for("vitrin"))
-    botdb.spend(user["user_id"], listing["price"])
-    botdb.add_item(user["user_id"], f"listing:{lid}")
-    botdb.credit(listing["seller_id"], listing["price"])
-    state = botdb.decrement_stock(lid)
-    sold_out = bool(state and state["stock"] <= 0)
-    if sold_out:
-        botdb.close_listing(lid, user["user_id"])
+    code = session.get("code")
+    u = botdb.get_user_by_code(code)
+    user_id = u["user_id"] if u else None
+    oid = botdb.create_order(
+        code,
+        session.get("color"),
+        user_id,
+        f"listing:{lid}",
+        listing["name"],
+        "🧾 Vitrin buyurtmasi",
+        listing["price"],
+        0,
+    )
     tg_send(
         ADMIN_ID,
-        f"[MURTHEHELP] Vitrindan xarid!\n"
+        f"[MURTHEHELP] YANGI BUYURTMA #{oid}\n"
         f"Mahsulot: {listing['name']}\n"
         f"Narx: {listing['price']} KREDIT\n"
-        f"Qoldiq: {state['stock'] if state else 0} dona\n"
-        f"Xaridor kodi: {session.get('code')}"
-        + ("\n\n⚠️ BU MAHSULOT SOTILIB KETDI!" if sold_out else ""),
+        f"Kod: {code}\n"
+        "Tasdiq: sayt admin paneli.",
     )
-    flash(
-        f"[+] SOTIB OLINDI: {listing['name']} -- {listing['price']} KREDIT. "
-        f"TELEGRAM OMBORINGIZGA TUSHDI!"
-    )
+    flash(f"[+] BUYURTMA #{oid} YUBORILDI. ADMIN TASDIQLAGACH MAHSULOT SOTIB OLINADI!")
     return redirect(url_for("vitrin"))
+
+
+@app.route("/admin/order/confirm/<int:oid>", methods=["POST"])
+@admin_required
+def admin_confirm_order(oid):
+    order = botdb.get_order(oid)
+    if not order:
+        flash("[!] BUYURTMA TOPILMADI")
+        return redirect(url_for("admin"))
+    if not order["pid"].startswith("listing:"):
+        flash("[!] BU TUGMA FAQAT DO'KON BUYURTMALARI UCHUN")
+        return redirect(url_for("admin"))
+    if order["status"] == "sold":
+        flash("[!] BUYURTMA ALLAQACHON SOTILGAN")
+        return redirect(url_for("admin"))
+    user_id = order["user_id"]
+    if not user_id:
+        u = botdb.get_user_by_code(order["code"])
+        user_id = u["user_id"] if u else None
+    if not user_id:
+        flash("[!] XARIDOR TELEGRAM'GA ULANGAN EMAS (BOT'DA /kirish <kod> QILISHI KERAK)")
+        return redirect(url_for("admin"))
+    order["user_id"] = user_id
+    price = order["final_price"] or order["base_price"]
+    ok, name = botdb.complete_listing_order(order, price)
+    if not ok:
+        flash(f"[!] TASDIQLANMADI: {name}")
+        return redirect(url_for("admin"))
+    tg_send(
+        user_id,
+        f"✅ SOTIB OLINDINGIZ!\nMahsulot: {name} -- {price} KREDIT\nTelegram omboringizga tushdi!",
+    )
+    flash(f"[+] BUYURTMA #{oid} TASDIQLANDI: {name} -- {price} KREDIT. XARIDORGA YETKAZILDI!")
+    return redirect(url_for("admin"))
 
 
 if __name__ == "__main__":
