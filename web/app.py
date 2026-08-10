@@ -30,7 +30,6 @@ load_dotenv(os.path.join(BASE_DIR, "..", ".env"))
 
 sys.path.insert(0, os.path.join(BASE_DIR, ".."))
 import db as botdb
-import handlers
 
 ADMIN_CODE = os.getenv("ADMIN_CODE", "MURTHEHELP").strip().upper()
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
@@ -123,30 +122,34 @@ app.secret_key = load_secret()
 app.config["SESSION_COOKIE_NAME"] = "murthehelp_session"
 
 
-def _make_bot():
-    from aiogram import Bot
-    from aiogram.client.default import DefaultBotProperties
-    from aiogram.enums import ParseMode
-
-    return Bot(
-        token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
-    )
-
-
 _loop = None
 _bot = None
 _dp = None
+_aiogram_ready = False
+_aiogram_lock = threading.Lock()
 
-if BOT_TOKEN:
-    from aiogram import Dispatcher
-    from aiogram.types import Update
 
-    _loop = asyncio.new_event_loop()
-    threading.Thread(target=_loop.run_forever, daemon=True).start()
-    _bot = _make_bot()
-    _dp = Dispatcher()
-    _dp.include_router(handlers.router)
+def _ensure_aiogram():
+    global _loop, _bot, _dp, _aiogram_ready
+    if _aiogram_ready or not BOT_TOKEN:
+        return
+    with _aiogram_lock:
+        if _aiogram_ready:
+            return
+        import handlers
+        from aiogram import Bot, Dispatcher
+        from aiogram.client.default import DefaultBotProperties
+        from aiogram.enums import ParseMode
+
+        _loop = asyncio.new_event_loop()
+        threading.Thread(target=_loop.run_forever, daemon=True).start()
+        _bot = Bot(
+            token=BOT_TOKEN,
+            default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+        )
+        _dp = Dispatcher()
+        _dp.include_router(handlers.router)
+        _aiogram_ready = True
 
 
 def setup_webhook():
@@ -245,6 +248,7 @@ def gate():
 def webhook(token):
     if not WEBHOOK_SECRET or token != WEBHOOK_SECRET:
         return "forbidden", 403
+    _ensure_aiogram()
     if not _dp or not _bot or not _loop:
         return "ok", 200
     from aiogram.types import Update
