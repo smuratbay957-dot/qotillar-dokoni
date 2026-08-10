@@ -144,12 +144,16 @@ def _ensure_aiogram():
 
         _loop = asyncio.new_event_loop()
         threading.Thread(target=_loop.run_forever, daemon=True).start()
-        session = AiohttpSession(trust_env=True)
-        _bot = Bot(
-            token=BOT_TOKEN,
-            session=session,
-            default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
-        )
+
+        async def _build_bot():
+            session = AiohttpSession(trust_env=True)
+            return Bot(
+                token=BOT_TOKEN,
+                session=session,
+                default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+            )
+
+        _bot = asyncio.run_coroutine_threadsafe(_build_bot(), _loop).result(timeout=30)
         _dp = Dispatcher()
         _dp.include_router(handlers.router)
         _aiogram_ready = True
@@ -260,6 +264,28 @@ def debug():
         "db_path": DB_PATH,
         "webhook_endpoint": f"/webhook/{WEBHOOK_SECRET}",
     }
+
+
+@app.route("/debug/net")
+def debug_net():
+    import urllib.request
+
+    results = {}
+    for name, url in [
+        ("telegram", "https://api.telegram.org"),
+        ("google", "https://www.google.com"),
+    ]:
+        try:
+            r = urllib.request.urlopen(url, timeout=8)
+            results[name] = f"OK {r.status}"
+        except Exception as e:
+            results[name] = f"FAIL {type(e).__name__}: {e}"
+    results["https_proxy"] = os.environ.get("HTTPS_PROXY") or os.environ.get(
+        "https_proxy"
+    )
+    results["http_proxy"] = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    results["no_proxy"] = os.environ.get("NO_PROXY") or os.environ.get("no_proxy")
+    return results
 
 
 @app.route("/webhook/<token>", methods=["POST"])
