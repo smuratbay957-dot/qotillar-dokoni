@@ -274,7 +274,9 @@ def webhook(token):
     try:
         fut.result(timeout=30)
     except Exception:
-        pass
+        import traceback
+
+        traceback.print_exc()
     return "ok", 200
 
 
