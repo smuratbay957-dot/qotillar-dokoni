@@ -585,7 +585,8 @@ def order_confirm(oid):
 @user_required
 def vitrin():
     listings = botdb.get_active_listings()
-    return render_template("vitrin.html", listings=listings)
+    sold = botdb.get_recent_sold_listings(10)
+    return render_template("vitrin.html", listings=listings, sold=sold)
 
 
 @app.route("/vitrin/buy/<int:lid>", methods=["POST"])
@@ -605,14 +606,19 @@ def vitrin_buy(lid):
         return redirect(url_for("vitrin"))
     botdb.spend(user["user_id"], listing["price"])
     botdb.add_item(user["user_id"], f"listing:{lid}")
-    botdb.close_listing(lid, user["user_id"])
     botdb.credit(listing["seller_id"], listing["price"])
+    state = botdb.decrement_stock(lid)
+    sold_out = bool(state and state["stock"] <= 0)
+    if sold_out:
+        botdb.close_listing(lid, user["user_id"])
     tg_send(
         ADMIN_ID,
         f"[MURTHEHELP] Vitrindan xarid!\n"
         f"Mahsulot: {listing['name']}\n"
         f"Narx: {listing['price']} KREDIT\n"
-        f"Xaridor kodi: {session.get('code')}",
+        f"Qoldiq: {state['stock'] if state else 0} dona\n"
+        f"Xaridor kodi: {session.get('code')}"
+        + ("\n\n⚠️ BU MAHSULOT SOTILIB KETDI!" if sold_out else ""),
     )
     flash(
         f"[+] SOTIB OLINDI: {listing['name']} -- {listing['price']} KREDIT. "

@@ -506,7 +506,11 @@ textarea:focus { border-color: var(--green); }
 
 .product-name { font-family: var(--head); font-weight: 600; letter-spacing: .06em; }
 .product-price { color: var(--green); margin: 8px 0; }
+.product-stock { color: var(--dim); font-size: 12px; }
 .product-desc { color: var(--dim); font-size: 12px; line-height: 1.6; }
+
+.product-sold { opacity: .45; filter: grayscale(1); }
+.product-sold .product-price { color: var(--red); font-family: var(--head); letter-spacing: .08em; }
 
 .buy-form { margin-top: 14px; }
 

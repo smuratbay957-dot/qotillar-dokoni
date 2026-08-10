@@ -29,6 +29,7 @@
         </div>
         <div class="product-name">{{ l.name }}</div>
         <div class="product-price">{{ l.price }} KREDIT</div>
+        <div class="product-stock">📦 Qoldiq: {{ l.stock }} dona</div>
         <form method="post" action="{{ url_for('vitrin_buy', lid=l.id) }}" class="buy-form">
           <button type="submit" class="btn btn-buy">[ SOTIB OLISH ]</button>
         </form>
@@ -36,13 +37,34 @@
       {% endfor %}
     </div>
     <p class="hint">
-      Sotib olganingizda kredit hisobingizdan yechiladi, mahsulot Telegram omboringizga tushadi.
+      Sotib olganingizda kredit hisobingizdan yechiladi, qoldiq 1 donaga kamayadi, mahsulot Telegram omboringizga tushadi.
     </p>
     {% else %}
     <p class="empty">Vitrin hozircha bo'sh.</p>
     <p class="hint"><a class="btn btn-ghost btn-sm" href="{{ url_for('shop') }}">[ DO'KONGA QAYTISH ]</a></p>
     {% endif %}
   </section>
+
+  {% if sold %}
+  <section class="card">
+    <h2 class="card-title">// SOTILIB KETGANLAR</h2>
+    <div class="product-grid">
+      {% for l in sold %}
+      <div class="product product-sold">
+        <div class="product-img">
+          {% if l.photo_url %}
+          <img src="{{ l.photo_url }}" alt="{{ l.name }}" loading="lazy">
+          {% else %}
+          <img src="{{ 'https://picsum.photos/seed/' ~ l.id ~ '/600/400' }}" alt="{{ l.name }}" loading="lazy">
+          {% endif %}
+        </div>
+        <div class="product-name">{{ l.name }}</div>
+        <div class="product-price">SOTILIB KETDI</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <nav class="navbar">
     <a class="btn" href="{{ url_for('shop') }}">🏪 DO'KON</a>

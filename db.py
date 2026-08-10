@@ -41,6 +41,7 @@ def init_db():
                 price INTEGER,
                 photo_file_id TEXT,
                 photo_url TEXT DEFAULT '',
+                stock INTEGER DEFAULT 1,
                 status TEXT DEFAULT 'active',
                 buyer_id INTEGER
             )
@@ -48,6 +49,10 @@ def init_db():
         )
         try:
             conn.execute("ALTER TABLE listings ADD COLUMN photo_url TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE listings ADD COLUMN stock INTEGER DEFAULT 1")
         except sqlite3.OperationalError:
             pass
         conn.execute(
@@ -147,14 +152,14 @@ def get_inventory(user_id):
     return [(row["product_id"], row["qty"]) for row in rows]
 
 
-def create_listing(seller_id, name, price, photo_file_id, photo_url=""):
+def create_listing(seller_id, name, price, photo_file_id, photo_url="", stock=1):
     with get_conn() as conn:
         cur = conn.execute(
             """
-            INSERT INTO listings (seller_id, name, price, photo_file_id, photo_url)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO listings (seller_id, name, price, photo_file_id, photo_url, stock)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (seller_id, name, price, photo_file_id, photo_url),
+            (seller_id, name, price, photo_file_id, photo_url, stock),
         )
         return cur.lastrowid
 
@@ -162,7 +167,7 @@ def create_listing(seller_id, name, price, photo_file_id, photo_url=""):
 def get_active_listings():
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id, photo_url FROM listings WHERE status = 'active' ORDER BY id"
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock FROM listings WHERE status = 'active' ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -170,10 +175,41 @@ def get_active_listings():
 def get_listing(listing_id):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id, photo_url, status FROM listings WHERE id = ?",
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock, status FROM listings WHERE id = ?",
             (listing_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def decrement_stock(listing_id):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE listings SET stock = stock - 1 WHERE id = ? AND status = 'active'",
+            (listing_id,),
+        )
+        row = conn.execute(
+            "SELECT id, seller_id, name, price, stock FROM listings WHERE id = ?",
+            (listing_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def unsell_listing(name, price):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM listings WHERE status = 'active' AND name = ? AND price = ?",
+            (name, price),
+        )
+        return cur.rowcount
+
+
+def get_recent_sold_listings(limit=10):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock FROM listings WHERE status != 'active' ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def close_listing(listing_id, buyer_id):

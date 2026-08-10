@@ -118,24 +118,35 @@ async def cmd_savdo(message: Message):
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.answer(
             "🖼️ Mahsulot rasmini yuboring va shu rasmga *reply* qilib yozing:\n"
-            "`/savdo Mahsulot nomi narxi`\n\n"
-            "Misol:\n`/savdo Qadimiy seyf 750`\n\n"
+            "`/savdo Mahsulot nomi narxi soni`\n\n"
+            "Misol:\n`/savdo Qadimiy seyf 750 10`\n\n"
+            "(`soni` yozilmasa 1 dona deb olinadi)\n\n"
             "Sotuv saytning 🧾 Vitrin bo'limida chiqadi."
         )
         return
     parts = message.text.split()
     if len(parts) < 3:
-        await message.answer("Format noto'g'ri!\n\n`/savdo Mahsulot nomi narxi`")
+        await message.answer("Format noto'g'ri!\n\n`/savdo Mahsulot nomi narxi [soni]`")
         return
     try:
-        price = int(parts[-1])
+        if len(parts) >= 4:
+            stock = int(parts[-1])
+            price = int(parts[-2])
+            name = " ".join(parts[1:-2])
+        else:
+            stock = 1
+            price = int(parts[-1])
+            name = " ".join(parts[1:-1])
     except ValueError:
-        await message.answer("Narx son bo'lishi kerak! Masalan: `/savdo Seyf 750`")
+        await message.answer("Narx va soni son bo'lishi kerak! Masalan: `/savdo Seyf 750 10`")
         return
     if price < 1:
         await message.answer("Narx 1 kreditdan kam bo'lmasin.")
         return
-    name = " ".join(parts[1:-1])
+    if stock < 1:
+        await message.answer("Soni 1 dan kam bo'lmasin.")
+        return
+    name = name.strip()
     photo_file_id = message.reply_to_message.photo[-1].file_id
     photo_url = ""
     try:
@@ -143,13 +154,42 @@ async def cmd_savdo(message: Message):
         photo_url = f"https://api.telegram.org/file/bot{message.bot.token}/{file.file_path}"
     except Exception:
         pass
-    db.create_listing(message.from_user.id, name, price, photo_file_id, photo_url)
+    db.create_listing(message.from_user.id, name, price, photo_file_id, photo_url, stock)
     await message.answer(
         f"✅ *{name}* vitringa qo'shildi!\n\n"
         f"💰 Narxi: {price} kredit\n"
+        f"📦 Qoldiq: {stock} dona\n"
         "Endi u saytning 🧾 Vitrin bo'limida va bot'da ko'rinadi. "
-        "Sotilganda kreditlar hisobingizga tushadi."
+        "Har sotuvda kreditlar hisobingizga tushadi, soni kamayib boradi."
     )
+
+
+@router.message(Command("unsell"))
+async def cmd_unsell(message: Message):
+    if not ADMIN_ID or str(message.from_user.id) != ADMIN_ID:
+        await message.answer("❌ Sotish faqat admin uchun.")
+        return
+    parts = message.text.split()
+    if len(parts) < 3:
+        await message.answer(
+            "🗑️ Sotuvni olib tashlash uchun:\n`/unsell <Mahsulot nomi> <narx>`\n\n"
+            "Misol:\n`/unsell Qadimiy seyf 750`"
+        )
+        return
+    try:
+        price = int(parts[-1])
+    except ValueError:
+        await message.answer("Narx son bo'lishi kerak! Masalan: `/unsell Seyf 750`")
+        return
+    name = " ".join(parts[1:-1]).strip()
+    removed = db.unsell_listing(name, price)
+    if removed:
+        await message.answer(
+            f"🗑️ *{name}* ({price} kredit) vitrindan olib tashlandi.\n\n"
+            f"O'chirilgan sotuvlar: {removed} ta"
+        )
+    else:
+        await message.answer(f"[!] *{name}* ({price} kredit) bo'yicha faol sotuv topilmadi.")
 
 
 @router.message(Command("kridit", "kredit"))
@@ -334,6 +374,7 @@ async def cb_vitrin(cb: CallbackQuery):
             caption=(
                 f"🧾 *{l['name']}*\n"
                 f"💰 Narxi: {l['price']} kredit\n"
+                f"📦 Qoldiq: {l['stock']} dona\n"
                 f"_Sotuvchi: @{cb.bot.username}_"
             ),
             reply_markup=InlineKeyboardMarkup(
@@ -360,10 +401,11 @@ async def cb_sell_help(cb: CallbackQuery):
         "🛍️ *MAHSULOT SOTISH*\n\n"
         "1️⃣ Mahsulot rasmini yuboring\n"
         "2️⃣ Shu rasmga *reply* qilib yozing:\n"
-        "`/savdo Mahsulot nomi narxi`\n\n"
-        "Misol:\n`/savdo Qadimiy seyf 750`\n\n"
+        "`/savdo Mahsulot nomi narxi soni`\n\n"
+        "Misol:\n`/savdo Qadimiy seyf 750 10`\n\n"
+        "(`soni` -- qancha dona sotuvga qo'yiladi)\n\n"
         "Mahsulot 🧾 Vitrinda ko'rinadi, boshqalar sotib olishi mumkin. "
-        "Sotilganda kreditlar hisobingizga tushadi!",
+        "Har sotuvda soni kamayadi, kreditlar hisobingizga tushadi!",
         reply_markup=back_to_shop_keyboard(),
     )
     await cb.answer()
@@ -473,13 +515,17 @@ async def cb_buy_listing(cb: CallbackQuery):
     db.spend(cb.from_user.id, listing["price"])
     db.add_item(cb.from_user.id, f"listing:{lid}")
     db.credit(listing["seller_id"], listing["price"])
-    db.close_listing(lid, cb.from_user.id)
+    state = db.decrement_stock(lid)
+    sold_out = bool(state and state["stock"] <= 0)
+    if sold_out:
+        db.close_listing(lid, cb.from_user.id)
     await cb.answer("✅ Xarid muvaffaqiyatli!", show_alert=True)
     try:
         await cb.bot.send_message(
             listing["seller_id"],
             f"🎉 Sizning *{listing['name']}* mahsulotingiz sotildi!\n"
-            f"Hisobingizga +{listing['price']} kredit tushdi.",
+            f"Hisobingizga +{listing['price']} kredit tushdi."
+            + ("\n\n⚠️ Bu mahsulot *sotilib ketdi*!" if sold_out else ""),
         )
     except Exception:
         pass
