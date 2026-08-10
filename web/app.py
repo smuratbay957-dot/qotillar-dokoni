@@ -244,6 +244,20 @@ def gate():
     return render_template("gate.html")
 
 
+@app.route("/debug")
+def debug():
+    return {
+        "env_file_exists": os.path.exists(os.path.join(BASE_DIR, "..", ".env")),
+        "bot_token_set": bool(BOT_TOKEN),
+        "admin_id": ADMIN_ID,
+        "webhook_secret": WEBHOOK_SECRET,
+        "web_url": WEB_URL,
+        "aiogram_ready": _aiogram_ready,
+        "db_path": DB_PATH,
+        "webhook_endpoint": f"/webhook/{WEBHOOK_SECRET}",
+    }
+
+
 @app.route("/webhook/<token>", methods=["POST"])
 def webhook(token):
     if not WEBHOOK_SECRET or token != WEBHOOK_SECRET:
