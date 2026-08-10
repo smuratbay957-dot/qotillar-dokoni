@@ -16,6 +16,12 @@ from config import ADMIN_ID, START_BALANCE, WEB_URL
 
 router = Router()
 
+TIER_NAMES = {
+    1: ("🗡️ 1-DARAJA", "Qotillik qurollari"),
+    2: ("🕵️ 2-DARAJA", "Josus narsalari"),
+    3: ("🧹 3-DARAJA", "Tozalash narsalar"),
+}
+
 
 def web_button():
     if WEB_URL.startswith("https"):
@@ -45,6 +51,24 @@ def main_menu_keyboard():
 def shop_menu_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"{TIER_NAMES[1][0]} // {TIER_NAMES[1][1]}",
+                    callback_data="tier:1",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{TIER_NAMES[2][0]} // {TIER_NAMES[2][1]}",
+                    callback_data="tier:2",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{TIER_NAMES[3][0]} // {TIER_NAMES[3][1]}",
+                    callback_data="tier:3",
+                )
+            ],
             [InlineKeyboardButton(text="📦 Katalog (mening kodim)", callback_data="catalog")],
             [InlineKeyboardButton(text="🧾 Vitrin (boshqa sotuvchilar)", callback_data="vitrin")],
             [InlineKeyboardButton(text="🛍️ Mahsulot sotish", callback_data="sell_help")],
@@ -118,27 +142,34 @@ async def cmd_savdo(message: Message):
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.answer(
             "🖼️ Mahsulot rasmini yuboring va shu rasmga *reply* qilib yozing:\n"
-            "`/savdo Mahsulot nomi narxi soni`\n\n"
-            "Misol:\n`/savdo Qadimiy seyf 750 10`\n\n"
-            "(`soni` yozilmasa 1 dona deb olinadi)\n\n"
-            "Sotuv saytning 🧾 Vitrin bo'limida chiqadi."
+            "`/savdo <Nomi> <narx> <soni> <daraja>`\n\n"
+            "Daraja:\n"
+            "`1` -- Qotillik qurollari\n"
+            "`2` -- Josus narsalari\n"
+            "`3` -- Tozalash narsalar\n\n"
+            "Misol:\n`/savdo ak47 2000 4 1`"
         )
         return
     parts = message.text.split()
-    if len(parts) < 3:
-        await message.answer("Format noto'g'ri!\n\n`/savdo Mahsulot nomi narxi [soni]`")
+    if len(parts) < 5:
+        await message.answer(
+            "Format to'g'ri emas!\n\n`/savdo <Nomi> <narx> <soni> <daraja>`\n\n"
+            "Misol:\n`/savdo ak47 2000 4 1`"
+        )
         return
     try:
-        if len(parts) >= 4:
-            stock = int(parts[-1])
-            price = int(parts[-2])
-            name = " ".join(parts[1:-2])
-        else:
-            stock = 1
-            price = int(parts[-1])
-            name = " ".join(parts[1:-1])
+        tier = int(parts[-1])
+        stock = int(parts[-2])
+        price = int(parts[-3])
+        name = " ".join(parts[1:-3])
     except ValueError:
-        await message.answer("Narx va soni son bo'lishi kerak! Masalan: `/savdo Seyf 750 10`")
+        await message.answer("Narx, soni va daraja son bo'lishi kerak!\n\nMisol:\n`/savdo ak47 2000 4 1`")
+        return
+    if tier not in TIER_NAMES:
+        await message.answer(
+            "Daraja 1, 2 yoki 3 bo'lishi kerak!\n\n"
+            "`1` -- Qotillik qurollari\n`2` -- Josus narsalari\n`3` -- Tozalash narsalar"
+        )
         return
     if price < 1:
         await message.answer("Narx 1 kreditdan kam bo'lmasin.")
@@ -154,12 +185,14 @@ async def cmd_savdo(message: Message):
         photo_url = f"https://api.telegram.org/file/bot{message.bot.token}/{file.file_path}"
     except Exception:
         pass
-    db.create_listing(message.from_user.id, name, price, photo_file_id, photo_url, stock)
+    db.create_listing(message.from_user.id, name, price, photo_file_id, photo_url, stock, tier)
+    tier_label, tier_name = TIER_NAMES[tier]
     await message.answer(
-        f"✅ *{name}* vitringa qo'shildi!\n\n"
+        f"✅ *{name}* qo'shildi!\n\n"
         f"💰 Narxi: {price} kredit\n"
         f"📦 Qoldiq: {stock} dona\n"
-        "Endi u saytning 🧾 Vitrin bo'limida va bot'da ko'rinadi. "
+        f"{tier_label}: {tier_name}\n\n"
+        "Endi u bot'dagi Do'kon darajasida va saytning 🧾 Vitrin bo'limida ko'rinadi. "
         "Har sotuvda kreditlar hisobingizga tushadi, soni kamayib boradi."
     )
 
@@ -352,6 +385,60 @@ async def cb_catalog(cb: CallbackQuery):
     await cb.answer()
 
 
+@router.callback_query(F.data.startswith("tier:"))
+async def cb_tier(cb: CallbackQuery):
+    user = await ensure_registered(cb)
+    if not user:
+        return
+    try:
+        tier = int(cb.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await cb.answer("Xatolik.", show_alert=True)
+        return
+    if tier not in TIER_NAMES:
+        await cb.answer("Xatolik.", show_alert=True)
+        return
+    tier_label, tier_name = TIER_NAMES[tier]
+    listings = [l for l in db.get_active_listings_by_tier(tier) if l["seller_id"] != cb.from_user.id]
+    if not listings:
+        await cb.message.edit_text(
+            f"{tier_label} // *{tier_name}*\n\n"
+            "Hozircha bo'sh.\n\n"
+            "Sotuvchilar mahsulot qo'shishi bilanoq shu yerda ko'rinadi. "
+            "O'zingiz ham sotishingiz mumkin: /savdo <Nomi> <narx> <soni> <daraja>",
+            reply_markup=back_to_shop_keyboard(),
+        )
+        await cb.answer()
+        return
+    await cb.message.edit_text(f"{tier_label} // *{tier_name}*\n\nQuyida yuborildi.")
+    for l in listings:
+        await cb.bot.send_photo(
+            cb.message.chat.id,
+            l["photo_file_id"],
+            caption=(
+                f"🧾 *{l['name']}*\n"
+                f"💰 Narxi: {l['price']} kredit\n"
+                f"📦 Qoldiq: {l['stock']} dona\n"
+                f"{tier_label}: {tier_name}"
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=f"🛒 Sotib olish — {l['price']} 💰",
+                            callback_data=f"buy:list:{l['id']}",
+                        )
+                    ]
+                ]
+            ),
+        )
+    await cb.message.answer(
+        "⬅️ Do'konga qaytish",
+        reply_markup=back_to_shop_keyboard(),
+    )
+    await cb.answer()
+
+
 @router.callback_query(F.data == "vitrin")
 async def cb_vitrin(cb: CallbackQuery):
     user = await ensure_registered(cb)
@@ -362,7 +449,7 @@ async def cb_vitrin(cb: CallbackQuery):
         await cb.message.edit_text(
             "🧾 Vitrin hozircha bo'sh.\n\n"
             "O'z mahsulotingizni sotish uchun rasm yuborib, unga reply qiling:\n"
-            "`/savdo Mahsulot nomi narxi`",
+            "`/savdo <Nomi> <narx> <soni> <daraja>`",
             reply_markup=back_to_shop_keyboard(),
         )
         await cb.answer()
@@ -401,11 +488,15 @@ async def cb_sell_help(cb: CallbackQuery):
         "🛍️ *MAHSULOT SOTISH*\n\n"
         "1️⃣ Mahsulot rasmini yuboring\n"
         "2️⃣ Shu rasmga *reply* qilib yozing:\n"
-        "`/savdo Mahsulot nomi narxi soni`\n\n"
-        "Misol:\n`/savdo Qadimiy seyf 750 10`\n\n"
-        "(`soni` -- qancha dona sotuvga qo'yiladi)\n\n"
-        "Mahsulot 🧾 Vitrinda ko'rinadi, boshqalar sotib olishi mumkin. "
-        "Har sotuvda soni kamayadi, kreditlar hisobingizga tushadi!",
+        "`/savdo <Nomi> <narx> <soni> <daraja>`\n\n"
+        "Daraja:\n"
+        "`1` -- Qotillik qurollari\n"
+        "`2` -- Josus narsalari\n"
+        "`3` -- Tozalash narsalar\n\n"
+        "Misol:\n`/savdo ak47 2000 4 1`\n\n"
+        "Mahsulot bot'dagi Do'kon darajasida va 🧾 Vitrinda ko'rinadi, "
+        "boshqalar sotib olishi mumkin. Har sotuvda soni kamayadi, "
+        "kreditlar hisobingizga tushadi!",
         reply_markup=back_to_shop_keyboard(),
     )
     await cb.answer()

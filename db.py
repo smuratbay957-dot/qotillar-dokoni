@@ -42,6 +42,7 @@ def init_db():
                 photo_file_id TEXT,
                 photo_url TEXT DEFAULT '',
                 stock INTEGER DEFAULT 1,
+                tier INTEGER DEFAULT 1,
                 status TEXT DEFAULT 'active',
                 buyer_id INTEGER
             )
@@ -53,6 +54,10 @@ def init_db():
             pass
         try:
             conn.execute("ALTER TABLE listings ADD COLUMN stock INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE listings ADD COLUMN tier INTEGER DEFAULT 1")
         except sqlite3.OperationalError:
             pass
         conn.execute(
@@ -152,14 +157,14 @@ def get_inventory(user_id):
     return [(row["product_id"], row["qty"]) for row in rows]
 
 
-def create_listing(seller_id, name, price, photo_file_id, photo_url="", stock=1):
+def create_listing(seller_id, name, price, photo_file_id, photo_url="", stock=1, tier=1):
     with get_conn() as conn:
         cur = conn.execute(
             """
-            INSERT INTO listings (seller_id, name, price, photo_file_id, photo_url, stock)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO listings (seller_id, name, price, photo_file_id, photo_url, stock, tier)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (seller_id, name, price, photo_file_id, photo_url, stock),
+            (seller_id, name, price, photo_file_id, photo_url, stock, tier),
         )
         return cur.lastrowid
 
@@ -167,7 +172,16 @@ def create_listing(seller_id, name, price, photo_file_id, photo_url="", stock=1)
 def get_active_listings():
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock FROM listings WHERE status = 'active' ORDER BY id"
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock, tier FROM listings WHERE status = 'active' ORDER BY id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_active_listings_by_tier(tier):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock, tier FROM listings WHERE status = 'active' AND tier = ? ORDER BY id",
+            (tier,),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -175,7 +189,7 @@ def get_active_listings():
 def get_listing(listing_id):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock, status FROM listings WHERE id = ?",
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, stock, tier, status FROM listings WHERE id = ?",
             (listing_id,),
         ).fetchone()
     return dict(row) if row else None
