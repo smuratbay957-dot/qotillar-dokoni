@@ -58,8 +58,16 @@
       siz javobni saytda va bot'da ko'rasiz. Tasdiqlaganingizda mahsulot Telegram omboringizga tushadi.
     </p>
     <p class="hint"><a class="btn btn-ghost btn-sm" href="{{ url_for('orders') }}">[ BARCHA BUYURTMALARIM ]</a></p>
+    <p class="hint"><a class="btn btn-ghost btn-sm" href="{{ url_for('vitrin') }}">[ 🧾 VITRIN -- ADMIN SOTUVLARI ]</a></p>
     <p class="hint">BU YERDA HAQIQIY SAVDO YO'Q -- FAQAT KO'RINISH UCHUN.</p>
   </section>
+
+  <nav class="navbar">
+    <a class="btn" href="{{ url_for('shop') }}">🏪 DO'KON</a>
+    <a class="btn" href="{{ url_for('vitrin') }}">🧾 VITRIN</a>
+    <a class="btn" href="{{ url_for('orders') }}">📦 BUYURTMALAR</a>
+    <a class="btn btn-danger" href="{{ url_for('logout') }}">⏻ CHIQISH</a>
+  </nav>
 
   <footer class="disclaimer">
     [!] SOXTA O'YIN -- HAQIQIY SAVDO YO'Q. FAQAT KO'NGIL OCHISH UCHUN.

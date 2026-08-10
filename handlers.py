@@ -112,16 +112,15 @@ async def cmd_codes(message: Message):
 
 @router.message(Command("savdo"))
 async def cmd_savdo(message: Message):
-    db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
-    user = db.get_user(message.from_user.id)
-    if not user or not user["code"]:
-        await message.answer("Avval /kirish <kod> orqali kiring!")
+    if not ADMIN_ID or str(message.from_user.id) != ADMIN_ID:
+        await message.answer("❌ Sotish faqat admin uchun.")
         return
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.answer(
             "🖼️ Mahsulot rasmini yuboring va shu rasmga *reply* qilib yozing:\n"
             "`/savdo Mahsulot nomi narxi`\n\n"
-            "Misol:\n`/savdo Qadimiy seyf 750`"
+            "Misol:\n`/savdo Qadimiy seyf 750`\n\n"
+            "Sotuv saytning 🧾 Vitrin bo'limida chiqadi."
         )
         return
     parts = message.text.split()
@@ -138,13 +137,57 @@ async def cmd_savdo(message: Message):
         return
     name = " ".join(parts[1:-1])
     photo_file_id = message.reply_to_message.photo[-1].file_id
-    db.create_listing(message.from_user.id, name, price, photo_file_id)
+    photo_url = ""
+    try:
+        file = await message.bot.get_file(photo_file_id)
+        photo_url = f"https://api.telegram.org/file/bot{message.bot.token}/{file.file_path}"
+    except Exception:
+        pass
+    db.create_listing(message.from_user.id, name, price, photo_file_id, photo_url)
     await message.answer(
         f"✅ *{name}* vitringa qo'shildi!\n\n"
         f"💰 Narxi: {price} kredit\n"
-        "Endi u 🧾 Vitrin bo'limida boshqa foydalanuvchilarga ko'rinadi. "
-        "Sotilganda pul hisobingizga tushadi."
+        "Endi u saytning 🧾 Vitrin bo'limida va bot'da ko'rinadi. "
+        "Sotilganda kreditlar hisobingizga tushadi."
     )
+
+
+@router.message(Command("kridit", "kredit"))
+async def cmd_kridit(message: Message):
+    if not ADMIN_ID or str(message.from_user.id) != ADMIN_ID:
+        await message.answer("Siz admin emassiz.")
+        return
+    parts = message.text.split()
+    if len(parts) < 3:
+        await message.answer(
+            "🎁 Kredit berish uchun:\n`/kridit <user_id> <kredit>`\n\n"
+            "Misol:\n`/kridit 123456789 500`\n\n"
+            "user_id -- foydalanuvchining Telegram ID si."
+        )
+        return
+    try:
+        user_id = int(parts[1])
+        amount = int(parts[2])
+    except ValueError:
+        await message.answer("[!] user_id va kredit son bo'lishi kerak.")
+        return
+    if amount < 1:
+        await message.answer("[!] Kredit 1 dan kam bo'lmasin.")
+        return
+    user = db.get_user(user_id)
+    if not user:
+        await message.answer(f"[!] {user_id} topilmadi (bu foydalanuvchi bot'ga hali kirmagan).")
+        return
+    db.credit(user_id, amount)
+    balance = db.get_user(user_id)["balance"]
+    await message.answer(f"✅ {user_id} ga +{amount} kredit berildi.\n💰 Yangi balans: {balance}")
+    try:
+        await message.bot.send_message(
+            user_id,
+            f"🎁 Admin sizga +{amount} kredit berdi!\n💰 Balansingiz: {balance} kredit",
+        )
+    except Exception:
+        pass
 
 
 @router.message(Command("kod"))

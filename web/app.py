@@ -581,6 +581,46 @@ def order_confirm(oid):
     return redirect(url_for("orders"))
 
 
+@app.route("/vitrin")
+@user_required
+def vitrin():
+    listings = botdb.get_active_listings()
+    return render_template("vitrin.html", listings=listings)
+
+
+@app.route("/vitrin/buy/<int:lid>", methods=["POST"])
+@user_required
+def vitrin_buy(lid):
+    listing = botdb.get_listing(lid)
+    if not listing or listing["status"] != "active":
+        flash("[!] BU MAHSULOT ALLAQACHON SOTILGAN")
+        return redirect(url_for("vitrin"))
+    linked = botdb.get_user_by_code(session.get("code"))
+    if not linked:
+        flash("[!] XARID QILISH UCHUN AVVAL BOT'DA /kirish <kod> QILING.")
+        return redirect(url_for("vitrin"))
+    user = botdb.get_user(linked["user_id"])
+    if user["balance"] < listing["price"]:
+        flash(f"[!] KREDITINGIZ YETARLI EMAS. BALANS: {user['balance']}")
+        return redirect(url_for("vitrin"))
+    botdb.spend(user["user_id"], listing["price"])
+    botdb.add_item(user["user_id"], f"listing:{lid}")
+    botdb.close_listing(lid, user["user_id"])
+    botdb.credit(listing["seller_id"], listing["price"])
+    tg_send(
+        ADMIN_ID,
+        f"[MURTHEHELP] Vitrindan xarid!\n"
+        f"Mahsulot: {listing['name']}\n"
+        f"Narx: {listing['price']} KREDIT\n"
+        f"Xaridor kodi: {session.get('code')}",
+    )
+    flash(
+        f"[+] SOTIB OLINDI: {listing['name']} -- {listing['price']} KREDIT. "
+        f"TELEGRAM OMBORINGIZGA TUSHDI!"
+    )
+    return redirect(url_for("vitrin"))
+
+
 if __name__ == "__main__":
     init_db()
     print(f"* MURTHEHELP ishga tushdi: http://127.0.0.1:{PORT}")

@@ -569,6 +569,35 @@ textarea:focus { border-color: var(--green); }
 
 .shop .disclaimer { margin-top: auto; }
 
+/* ---------- bottom navbar (mobile-friendly exit) ---------- */
+
+.navbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(6, 6, 7, .94);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(4px);
+}
+
+.navbar .btn {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  padding: 14px 10px;
+  white-space: nowrap;
+}
+
+.navbar .btn-danger { border-color: var(--red); color: var(--red); }
+.navbar .btn-danger:hover { background: var(--red); color: #000; }
+
+.panel { padding-bottom: 100px; }
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 520px) {

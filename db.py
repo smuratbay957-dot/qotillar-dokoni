@@ -40,11 +40,16 @@ def init_db():
                 name TEXT,
                 price INTEGER,
                 photo_file_id TEXT,
+                photo_url TEXT DEFAULT '',
                 status TEXT DEFAULT 'active',
                 buyer_id INTEGER
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE listings ADD COLUMN photo_url TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS codes (
@@ -142,14 +147,14 @@ def get_inventory(user_id):
     return [(row["product_id"], row["qty"]) for row in rows]
 
 
-def create_listing(seller_id, name, price, photo_file_id):
+def create_listing(seller_id, name, price, photo_file_id, photo_url=""):
     with get_conn() as conn:
         cur = conn.execute(
             """
-            INSERT INTO listings (seller_id, name, price, photo_file_id)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO listings (seller_id, name, price, photo_file_id, photo_url)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (seller_id, name, price, photo_file_id),
+            (seller_id, name, price, photo_file_id, photo_url),
         )
         return cur.lastrowid
 
@@ -157,7 +162,7 @@ def create_listing(seller_id, name, price, photo_file_id):
 def get_active_listings():
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id FROM listings WHERE status = 'active' ORDER BY id"
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url FROM listings WHERE status = 'active' ORDER BY id"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -165,7 +170,7 @@ def get_active_listings():
 def get_listing(listing_id):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, seller_id, name, price, photo_file_id, status FROM listings WHERE id = ?",
+            "SELECT id, seller_id, name, price, photo_file_id, photo_url, status FROM listings WHERE id = ?",
             (listing_id,),
         ).fetchone()
     return dict(row) if row else None
