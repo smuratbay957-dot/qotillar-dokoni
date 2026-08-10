@@ -42,21 +42,6 @@ def main_menu_keyboard():
     )
 
 
-def code_keyboard():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔴 Qizil (Qotil)", callback_data="code:red"),
-                InlineKeyboardButton(text="🟣 Binafsha (Josus)", callback_data="code:purple"),
-            ],
-            [
-                InlineKeyboardButton(text="🟡 Sariq (Tozalovchi)", callback_data="code:yellow"),
-                InlineKeyboardButton(text="🟢 Yashil (Himoyalangan)", callback_data="code:green"),
-            ],
-        ]
-    )
-
-
 def shop_menu_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -103,9 +88,9 @@ async def cmd_start(message: Message):
             "Bu 'A Shop for Killers' kinosi asosidagi *soxta o'yin* — "
             "hammasi fantastika, faqat ko'ngil ochish uchun. 😄\n\n"
             "Kino'dagi kabi Murthehelp do'koniga kirdingiz.\n"
-            "Kodingizni tanlang yoki web saytdan olgan kodingiz bilan kiring: `/kirish <kod>`\n\n"
-            "Avvalo o'z kodingizni tanlang:",
-            reply_markup=code_keyboard(),
+            "Admin tomonidan berilgan kodingiz bilan kiring:\n"
+            "`/kirish <kod>`\n\n"
+            "Kodingiz bo'lmasa — admin bilan bog'laning."
         )
     else:
         await message.answer(
@@ -130,7 +115,7 @@ async def cmd_savdo(message: Message):
     db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
     user = db.get_user(message.from_user.id)
     if not user or not user["code"]:
-        await message.answer("Avval /start orqali kod tanlang!")
+        await message.answer("Avval /kirish <kod> orqali kiring!")
         return
     if not message.reply_to_message or not message.reply_to_message.photo:
         await message.answer(
@@ -212,7 +197,7 @@ async def cmd_kirish(message: Message):
     code = parts[1].strip().lower()
     row = db.get_code(code)
     if not row:
-        await message.answer("[!] Bunday kod topilmadi.\n\nKodni admin web saytda yaratadi. Kodlaringiz bo'lsa /start orqali rang tanlang.")
+        await message.answer("[!] Bunday kod topilmadi.\n\nKodlarni admin web saytda yaratadi. Kodingiz bo'lsa /kirish <kod> orqali kiring.")
         return
     db.set_code(message.from_user.id, row["color"])
     user = db.get_user(message.from_user.id)
