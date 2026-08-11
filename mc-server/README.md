@@ -28,8 +28,18 @@ Ushbu papka BDS (rasmiy Bedrock Dedicated Server) yonida turadi va quyidagilarni
    va registratsiya qilingan o'yinchini ulanganda avtomatik whitelist qiladi.
    (Istalgan vaqtda `allow-list=true` qilishingiz mumkin.)
 
-3. Qurol addon'ini o'rnating: tanlagan addon'ingiz behavior pack'ini server yonidagi
-   `worlds/<worldname>/behavior_packs/` papkasiga tashlang va world'ni oching.
+3. Qurol addon'ini o'rnating. **Tanlangan: Absolute Guns 3 / M4 Update** (AzozGamer936)
+   -- 23 qurol (AK-47, M4, M16, AK-74U, PKM, RPK, MG-42, RPG-7, MP5, UMP-45,
+   M3/M1014/SPAS-12, Glock, flamethrower...). Script-based, dediker serverlarni
+   qo'llab-quvvatlaydi.
+
+   Fayl `mc-server/` papkasida allaqachon bor: `absolute-guns-3d.mcaddon`
+   (licenziya "All Rights Reserved" -- git'ga commit QILINMAYDI).
+   Yangi versiya: https://mcpedl.com/absolute-guns-3-3d/
+
+   O'rnatish: `.mcaddon` faylini server yonidagi `worlds/<worldname>/behavior_packs/`
+   papkasiga tashlang. World boshqa usulda ochilgan bo'lsa, `world_behavior_packs.json`
+   ga qo'shing va world'ni qayta oching.
 
 4. `mc-server/` papkasidagi fayllarni BDS papkasiga ko'chiring (yoki `server_dir` ni
    o'zgartiring).
@@ -67,26 +77,30 @@ Ushbu papka BDS (rasmiy Bedrock Dedicated Server) yonida turadi va quyidagilarni
   ```
   yozadi (kod bot'dagi /kirish kodi bilan bir xil).
 
-## Sozlash: weapons_map.json
+## weapons_map.json
 
-Kalit = bot'dagi mahsulot nomi (`/savdo` bilan yozilgan nom, katta-kichik ahamiyatsiz).
-Qiymat = o'yindagi qurol ID si (addon'ning `identifier` maydoni).
+Ushbu fayl Absolute Guns 3 uchun allaqachon to'ldirilgan -- bot'dagi mahsulot nomini
+shu xaritadagi kalitlarga moslab qo'ying. Kalit = bot'dagi mahsulot nomi
+(`/savdo` bilan yozilgan nom, katta-kichik ahamiyatsiz), qiymat = qurol ID si.
 
-Addon ID'sini qanday topish: addon papkasini oching, `items/` da `.item.json` fayllar
-bor. Har bir faylda `"identifier": "namespace:name"` qatori bo'ladi -- shuni qiymatga
-yozing. Masalan "Absolute Guns 3D" addonida:
+Amaldagi qurol ID lari (addon'dan olingan):
 
-```json
-{
-  "weapons": {
-    "ak47": "absolute_guns:ak47",
-    "m4a1": "absolute_guns:m4a1"
-  }
-}
+```
+absolute_guns:ak47          absolute_guns:ak47_gold   absolute_guns:ak74u
+absolute_guns:bizon         absolute_guns:flamethrower absolute_guns:glock
+absolute_guns:glock_tactical absolute_guns:m1014      absolute_guns:m16
+absolute_guns:m3            absolute_guns:m4          absolute_guns:mg42
+absolute_guns:mgl           absolute_guns:mp40        absolute_guns:mp5
+absolute_guns:mp5k          absolute_guns:pkm         absolute_guns:rpg7
+absolute_guns:rpk           absolute_guns:spas        absolute_guns:tactical_knife
+absolute_guns:tactical_knife_scope absolute_guns:ump45
 ```
 
-O'yinchi qurol sotib olib `/link <kod>` qilganda, qurol nomi shu xaritada topilsa
-`give` buyrug'i yuboriladi. Topilmasa bridge konsolida "MAPPING YO'Q" chiqadi.
+Ammo: `pistol_ammo`, `rifle_ammo`, `smg_ammo`, `shotgun_ammo`, `sniper_ammo`,
+`rpg7_ammo`, `machinegun_ammo` (hammasi `absolute_guns:` old qo'shimchasi bilan).
+
+Masalan bot'da `/savdo AK-47 2000 4 1` deb mahsulot ochilsa, xaridor sotib olib
+`/link <kod>` qilganda `absolute_guns:ak47` beriladi (xaritada "ak-47" kaliti bor).
 
 ## Ishga tushirish
 
