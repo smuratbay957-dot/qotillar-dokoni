@@ -1,0 +1,16 @@
+server-port=19132
+level-name=world
+gamemode=adventure
+force-gamemode=true
+difficulty=normal
+allow-cheats=true
+max-players=20
+online-mode=true
+allow-list=false
+enable-lan-visibility=false
+view-distance=10
+player-idle-timeout=30
+permission-level=member
+enable-rcon=true
+rcon-port=25575
+rcon-password=changeme

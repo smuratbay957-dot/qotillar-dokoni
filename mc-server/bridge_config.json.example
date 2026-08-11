@@ -1,0 +1,14 @@
+{
+  "pa_url": "https://Sukuna9876.pythonanywhere.com",
+  "bridge_key": "CHANGE_ME_LONG_RANDOM_BRIDGE_KEY",
+  "rcon_host": "127.0.0.1",
+  "rcon_port": 25575,
+  "rcon_password": "changeme",
+  "server_dir": ".",
+  "weapons_map_file": "weapons_map.json",
+  "allowlist_command": "allowlist add",
+  "link_codes": ["/link", "!link"],
+  "auto_whitelist": true,
+  "give_on_spawn": true,
+  "poll_delay": 1.0
+}

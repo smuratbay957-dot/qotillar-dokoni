@@ -1,0 +1,10 @@
+{
+  "weapons": {
+    "ak47": "absolute_guns:ak47",
+    "ak 47": "absolute_guns:ak47",
+    "m4a1": "absolute_guns:m4a1",
+    "deagle": "absolute_guns:deagle",
+    "pichoq": "minecraft:iron_sword",
+    "granata": "minecraft:snowball"
+  }
+}

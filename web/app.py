@@ -37,6 +37,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = os.getenv("ADMIN_ID", "").strip()
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 WEB_URL = os.getenv("WEB_URL", "").strip()
+BRIDGE_KEY = os.getenv("BRIDGE_KEY", "CHANGE_ME_BRIDGE_KEY").strip()
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "5000"))
 
@@ -397,7 +398,7 @@ def admin():
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT c.id, c.code, c.color, c.note, c.created_at,
+            SELECT c.id, c.code, c.color, c.note, c.mc_nick, c.created_at,
                    u.name AS uname, u.balance
             FROM codes c
             LEFT JOIN users u ON u.user_id = c.used_by
@@ -675,6 +676,50 @@ def admin_confirm_order(oid):
     )
     flash(f"[+] BUYURTMA #{oid} TASDIQLANDI: {name} -- {price} KREDIT. XARIDORGA YETKAZILDI!")
     return redirect(url_for("admin"))
+
+
+def _api_auth():
+    key = request.headers.get("X-Bridge-Key") or request.values.get("key", "")
+    return key == BRIDGE_KEY
+
+
+@app.route("/api/link", methods=["POST"])
+def api_link():
+    """Minecraft bridge: bog'laydi kod <-> nick, xarid qilingan qurollarni qaytaradi."""
+    if not _api_auth():
+        return {"ok": False, "error": "bad_key"}, 403
+    data = request.get_json(silent=True) or request.form
+    code = str(data.get("code", "")).strip().lower()
+    nick = str(data.get("nick", "")).strip()
+    if not code or not nick or len(nick) > 16:
+        return {"ok": False, "error": "bad_input"}, 400
+    status, info = botdb.bind_mc_nick(code, nick)
+    if status == "notfound":
+        return {"ok": False, "error": "notfound"}
+    if status == "used":
+        return {"ok": False, "error": "used", "nick": info}
+    owned = botdb.get_owned_weapons(code)
+    return {
+        "ok": True,
+        "code": code,
+        "nick": nick,
+        "weapons": (owned or {}).get("weapons", []),
+    }
+
+
+@app.route("/api/weapons")
+def api_weapons():
+    """Minecraft bridge: nick bo'yicha xarid qilingan qurollarni qaytaradi (qayta /give uchun)."""
+    if not _api_auth():
+        return {"ok": False, "error": "bad_key"}, 403
+    nick = request.values.get("nick", "").strip()
+    if not nick:
+        return {"ok": False, "error": "bad_input"}, 400
+    code = botdb.find_code_by_nick(nick)
+    if not code:
+        return {"ok": False, "error": "notfound"}
+    owned = botdb.get_owned_weapons(code)
+    return {"ok": True, "nick": nick, "weapons": (owned or {}).get("weapons", [])}
 
 
 if __name__ == "__main__":

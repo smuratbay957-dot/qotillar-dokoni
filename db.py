@@ -68,12 +68,17 @@ def init_db():
                 color TEXT NOT NULL,
                 note TEXT DEFAULT '',
                 used_by INTEGER DEFAULT NULL,
+                mc_nick TEXT DEFAULT NULL,
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
             """
         )
         try:
             conn.execute("ALTER TABLE codes ADD COLUMN used_by INTEGER DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE codes ADD COLUMN mc_nick TEXT DEFAULT NULL")
         except sqlite3.OperationalError:
             pass
         conn.execute(
@@ -277,6 +282,73 @@ def get_user_by_code(code):
             (code,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def bind_mc_nick(code, nick):
+    """Bind a Minecraft nick to a code.
+    Returns (status, data):
+      "notfound" -> no such code
+      "used"     -> code already bound to a different nick (data = that nick)
+      "ok"       -> bound (data = dict of the code row)
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code, color, note, used_by, mc_nick FROM codes WHERE code = ?",
+            (code,),
+        ).fetchone()
+        if not row:
+            return "notfound", None
+        if row["mc_nick"] and row["mc_nick"].lower() != nick.lower():
+            return "used", row["mc_nick"]
+        conn.execute(
+            "UPDATE codes SET mc_nick = ? WHERE code = ?",
+            (nick, code),
+        )
+    return "ok", dict(row)
+
+
+def get_owned_weapons(code):
+    """Resolve a code to its Telegram user and list bought weapons.
+    Returns dict {"mc_nick": ..., "user_id": ..., "weapons": [{key, name, qty}, ...]}
+    or None if the code doesn't exist.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code, used_by, mc_nick FROM codes WHERE code = ?",
+            (code,),
+        ).fetchone()
+        if not row:
+            return None
+        result = {
+            "mc_nick": row["mc_nick"],
+            "user_id": row["used_by"],
+            "weapons": [],
+        }
+        if row["used_by"]:
+            for pid, qty in get_inventory(row["used_by"]):
+                name = pid
+                if pid.startswith("listing:"):
+                    try:
+                        lid = int(pid.split(":", 1)[1])
+                    except ValueError:
+                        continue
+                    r2 = conn.execute(
+                        "SELECT name FROM listings WHERE id = ?",
+                        (lid,),
+                    ).fetchone()
+                    if r2:
+                        name = r2["name"]
+                result["weapons"].append({"key": pid, "name": name, "qty": qty})
+    return result
+
+
+def find_code_by_nick(nick):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code FROM codes WHERE LOWER(mc_nick) = LOWER(?)",
+            (nick,),
+        ).fetchone()
+    return row["code"] if row else None
 
 
 def stats():
