@@ -284,6 +284,16 @@ def get_user_by_code(code):
     return dict(row) if row else None
 
 
+def get_code_by_user_id(user_id):
+    """Foydalanuvchi faollashtirgan haqiqiy kodni qaytaradi (codes.used_by orqali)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT code FROM codes WHERE used_by = ? ORDER BY rowid DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    return row["code"] if row else None
+
+
 def bind_mc_nick(code, nick):
     """Bind a Minecraft nick to a code.
     Returns (status, data):

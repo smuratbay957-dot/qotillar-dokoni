@@ -338,8 +338,8 @@ async def cmd_mc(message: Message):
       /kirish <kod>  ->  /mc <o'yinchi nomi>  ->  serverga kirish
     """
     db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
-    user = db.get_user(message.from_user.id)
-    if not user["code"]:
+    code = db.get_code_by_user_id(message.from_user.id)
+    if not code:
         await message.answer(
             "🎬 Avval kod bilan kiring:\n`/kirish <kod>`\n\n"
             "Kodni admin web saytda yaratadi."
@@ -358,7 +358,7 @@ async def cmd_mc(message: Message):
     if not nick or len(nick) > 16:
         await message.answer("[!] O'yinchi nomi 1-16 belgi bo'lishi kerak.")
         return
-    status, info = db.bind_mc_nick(user["code"], nick)
+    status, info = db.bind_mc_nick(code, nick)
     if status == "notfound":
         await message.answer("[!] Kodingiz topilmadi. /kirish <kod> bilan qayta kiring.")
         return
@@ -371,7 +371,7 @@ async def cmd_mc(message: Message):
     await message.answer(
         f"✅ Minecraft bog'landi!\n\n"
         f"🎮 O'yinchi: `{nick}`\n"
-        f"🎫 Kod: `{user['code']}`\n\n"
+        f"🎫 Kod: `{code}`\n\n"
         f"Endi serverga kiring — qurollar avtomatik beriladi."
     )
 
