@@ -330,6 +330,52 @@ async def cmd_kirish(message: Message):
     )
 
 
+@router.message(Command("mc"))
+async def cmd_mc(message: Message):
+    """Minecraft server o'yinchi nomini kodingizga bog'lash.
+
+    Serverda qurollar avtomatik berilishi uchun:
+      /kirish <kod>  ->  /mc <o'yinchi nomi>  ->  serverga kirish
+    """
+    db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
+    user = db.get_user(message.from_user.id)
+    if not user["code"]:
+        await message.answer(
+            "🎬 Avval kod bilan kiring:\n`/kirish <kod>`\n\n"
+            "Kodni admin web saytda yaratadi."
+        )
+        return
+    parts = message.text.split()
+    if len(parts) < 2:
+        await message.answer(
+            "🎮 Minecraft o'yinchi nomingizni bog'lash uchun:\n"
+            "`/mc <o'yinchi nomi>`\n\n"
+            "Misol:\n`/mc Bayram7698`\n\n"
+            "Shundan so'ng serverga kirganingizda sotib olgan qurollar avtomatik beriladi."
+        )
+        return
+    nick = " ".join(parts[1:]).strip()
+    if not nick or len(nick) > 16:
+        await message.answer("[!] O'yinchi nomi 1-16 belgi bo'lishi kerak.")
+        return
+    status, info = db.bind_mc_nick(user["code"], nick)
+    if status == "notfound":
+        await message.answer("[!] Kodingiz topilmadi. /kirish <kod> bilan qayta kiring.")
+        return
+    if status == "used":
+        await message.answer(
+            f"⛔ Bu kod boshqa o'yinchi nomiga bog'langan: `{info}`\n\n"
+            "Yangi kod uchun admin bilan bog'laning."
+        )
+        return
+    await message.answer(
+        f"✅ Minecraft bog'landi!\n\n"
+        f"🎮 O'yinchi: `{nick}`\n"
+        f"🎫 Kod: `{user['code']}`\n\n"
+        f"Endi serverga kiring — qurollar avtomatik beriladi."
+    )
+
+
 @router.callback_query(F.data == "menu")
 async def cb_menu(cb: CallbackQuery):
     user = await ensure_registered(cb)
