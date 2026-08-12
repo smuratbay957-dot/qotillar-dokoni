@@ -376,6 +376,202 @@ async def cmd_mc(message: Message):
     )
 
 
+def clan_help_text():
+    return (
+        "🛡️ *CLAN TIZIMI*\n\n"
+        "Buyruqlar:\n"
+        "`/clan yaratish <Nomi>` — clan yaratish\n"
+        "`/clan tag <TAG>` — qisqa belgi o'rnatish (3-5 belgi)\n"
+        "`/clan azo <ID yoki MC nick>` — a'zo qo'shish (faqat lider)\n"
+        "`/clan chiqarish <ID yoki MC nick>` — a'zoni haydash (faqat lider)\n"
+        "`/clan chiqish` — clandan chiqish\n"
+        "`/clan tarqatish` — clan'ni tugatish (faqat lider)\n"
+        "`/clan` — clan ma'lumoti va a'zolar ro'yxati\n\n"
+        "Clan'ga qo'shish uchun o'yinchi avval `/mc <nick>` qilgan bo'lishi kerak."
+    )
+
+
+def clan_info_text(clan, members):
+    tag = clan["tag"] or ""
+    tag_txt = f" [{tag}]" if tag else ""
+    lines = [f"🛡️ *CLAN: {clan['name']}{tag_txt}*\n"]
+    for m in members:
+        role = "👑 LIDER" if m["role"] == "owner" else "⚔️ A'ZO"
+        name = m["name"] or f"ID:{m['user_id']}"
+        mc = ""
+        if m["code"]:
+            user = db.get_user(m["user_id"])
+            code = db.get_code_by_user_id(m["user_id"]) if user else None
+            if code:
+                row = db.get_code(code)
+                mc = f" ({code})" if row else ""
+        lines.append(f"{role} — {name}{mc}")
+    return "\n".join(lines)
+
+
+@router.message(Command("clan"))
+async def cmd_clan(message: Message):
+    db.ensure_user(message.from_user.id, message.from_user.first_name, START_BALANCE)
+    parts = message.text.split(maxsplit=1)
+    args = parts[1].strip() if len(parts) > 1 else ""
+    arg_parts = args.split(maxsplit=1)
+    action = arg_parts[0].lower() if arg_parts else ""
+    rest = arg_parts[1].strip() if len(arg_parts) > 1 else ""
+
+    if not action:
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer(clan_help_text())
+        else:
+            members = db.get_clan_members(clan["id"])
+            await message.answer(clan_info_text(clan, members))
+        return
+
+    if action == "yaratish":
+        if not rest:
+            await message.answer("[!] Clan nomi yozing:\n`/clan yaratish <Nomi>`")
+            return
+        if db.get_clan_by_user(message.from_user.id):
+            await message.answer("⛔ Siz allaqachon biror clanda turibsiz. Avval chiqing.")
+            return
+        if db.get_clan_by_name(rest):
+            await message.answer("⛔ Bunday nomli clan allaqachon mavjud.")
+            return
+        if len(rest) < 2 or len(rest) > 20:
+            await message.answer("[!] Clan nomi 2-20 belgi bo'lishi kerak.")
+            return
+        clan_id = db.create_clan(rest, message.from_user.id)
+        await message.answer(
+            f"✅ *{rest}* clan yaratildi!\n\n"
+            "Endi a'zo qo'shishingiz mumkin:\n`/clan azo <ID yoki MC nick>`\n\n"
+            "Tag o'rnatish:\n`/clan tag <TAG>`"
+        )
+        return
+
+    if action == "tag":
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer("[!] Avval clan yarating: `/clan yaratish <Nomi>`")
+            return
+        if not db.is_clan_owner(clan["id"], message.from_user.id):
+            await message.answer("⛔ Faqat lider tag o'rnata oladi.")
+            return
+        if not rest or not rest.isalnum() or len(rest) > 5:
+            await message.answer("[!] TAG 1-5 belgi (harf/raqam) bo'lishi kerak.")
+            return
+        db.set_clan_tag(clan["id"], rest)
+        await message.answer(f"✅ Clan tag'i o'rnatildi: `{rest}`")
+        return
+
+    if action == "azo":
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer("[!] Avval clan yarating: `/clan yaratish <Nomi>`")
+            return
+        if not db.is_clan_owner(clan["id"], message.from_user.id):
+            await message.answer("⛔ Faqat lider a'zo qo'sha oladi.")
+            return
+        if not rest:
+            await message.answer("[!] A'zo ID'si yoki MC nick yozing:\n`/clan azo <ID yoki MC nick>`")
+            return
+        target_id = None
+        if rest.isdigit():
+            target_id = int(rest)
+        else:
+            target_id = db.get_user_id_by_mc_nick(rest)
+            if not target_id:
+                await message.answer(
+                    f"[!] `{rest}` MC nick topilmadi. O'yinchi avval `/mc {rest}` qilishi kerak."
+                )
+                return
+        if target_id == message.from_user.id:
+            await message.answer("⛔ O'zingizni qo'sha olmaysiz, siz lider siz.")
+            return
+        user = db.get_user(target_id)
+        if not user:
+            await message.answer("[!] Bunday Telegram foydalanuvchi topilmadi.")
+            return
+        if db.get_clan_by_user(target_id):
+            await message.answer("⛔ Bu o'yinchi boshqa clanda turibdi.")
+            return
+        db.add_clan_member(clan["id"], target_id)
+        members = db.get_clan_members(clan["id"])
+        await message.answer(
+            f"✅ *{user['name']}* clan'ga qo'shildi!\n\n{clan_info_text(clan, members)}"
+        )
+        try:
+            await message.bot.send_message(
+                target_id,
+                f"🛡️ Siz *{clan['name']}* clan'ga qo'shildingiz!\n\n"
+                "Endi serverda qurollar clan belgisi bilan beriladi.",
+            )
+        except Exception:
+            pass
+        return
+
+    if action == "chiqarish":
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer("[!] Siz hech qanday clanda emassiz.")
+            return
+        if not db.is_clan_owner(clan["id"], message.from_user.id):
+            await message.answer("⛔ Faqat lider a'zo chiqara oladi.")
+            return
+        if not rest:
+            await message.answer("[!] A'zo ID'si yoki MC nick yozing:\n`/clan chiqarish <ID yoki MC nick>`")
+            return
+        target_id = None
+        if rest.isdigit():
+            target_id = int(rest)
+        else:
+            target_id = db.get_user_id_by_mc_nick(rest)
+            if not target_id:
+                await message.answer(f"[!] `{rest}` MC nick topilmadi.")
+                return
+        if target_id == message.from_user.id:
+            await message.answer("⛔ Lider o'zini chiqara olmaydi. `/clan tarqatish` qiling.")
+            return
+        if not db.remove_clan_member(clan["id"], target_id):
+            await message.answer("[!] Bu o'yinchi clan'da emas.")
+            return
+        await message.answer(f"🗑️ A'zo clan'dan chiqarildi!")
+        try:
+            await message.bot.send_message(
+                target_id, f"🗑️ Siz *{clan['name']}* clan'dan chiqarildingiz."
+            )
+        except Exception:
+            pass
+        return
+
+    if action == "chiqish":
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer("[!] Siz hech qanday clanda emassiz.")
+            return
+        if db.is_clan_owner(clan["id"], message.from_user.id):
+            await message.answer(
+                "⛔ Siz lider siz. Clan'ni tugatish uchun:\n`/clan tarqatish`"
+            )
+            return
+        db.remove_clan_member(clan["id"], message.from_user.id)
+        await message.answer(f"✅ Siz *{clan['name']}* clan'dan chiqdingiz.")
+        return
+
+    if action == "tarqatish":
+        clan = db.get_clan_by_user(message.from_user.id)
+        if not clan:
+            await message.answer("[!] Siz hech qanday clanda emassiz.")
+            return
+        if not db.is_clan_owner(clan["id"], message.from_user.id):
+            await message.answer("⛔ Faqat lider clan'ni tugata oladi.")
+            return
+        db.delete_clan(clan["id"])
+        await message.answer(f"🗑️ *{clan['name']}* clan tugatildi.")
+        return
+
+    await message.answer(clan_help_text())
+
+
 @router.callback_query(F.data == "menu")
 async def cb_menu(cb: CallbackQuery):
     user = await ensure_registered(cb)

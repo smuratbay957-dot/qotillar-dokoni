@@ -100,6 +100,28 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                tag TEXT DEFAULT '',
+                owner_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clan_members (
+                clan_id INTEGER,
+                user_id INTEGER,
+                role TEXT DEFAULT 'member',
+                joined_at TEXT DEFAULT (datetime('now', 'localtime')),
+                PRIMARY KEY (clan_id, user_id)
+            )
+            """
+        )
 
 
 def ensure_user(user_id, name, start_balance):
@@ -361,6 +383,15 @@ def find_code_by_nick(nick):
     return row["code"] if row else None
 
 
+def get_user_id_by_mc_nick(nick):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT used_by FROM codes WHERE LOWER(mc_nick) = LOWER(?)",
+            (nick,),
+        ).fetchone()
+    return row["used_by"] if row else None
+
+
 def stats():
     with get_conn() as conn:
         users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
@@ -446,3 +477,99 @@ def complete_listing_order(order, price):
         close_listing(lid, order["user_id"])
     confirm_order(order["id"])
     return True, listing["name"]
+
+
+def create_clan(name, owner_id, tag=""):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO clans (name, tag, owner_id) VALUES (?, ?, ?)",
+            (name, tag, owner_id),
+        )
+        clan_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO clan_members (clan_id, user_id, role) VALUES (?, ?, 'owner')",
+            (clan_id, owner_id),
+        )
+    return clan_id
+
+
+def get_clan(clan_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM clans WHERE id = ?", (clan_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_clan_by_name(name):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM clans WHERE LOWER(name) = LOWER(?)", (name,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_clan_tag(clan_id, tag):
+    with get_conn() as conn:
+        conn.execute("UPDATE clans SET tag = ? WHERE id = ?", (tag, clan_id))
+
+
+def get_clan_by_user(user_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT c.* FROM clans c
+            JOIN clan_members m ON m.clan_id = c.id
+            WHERE m.user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_clan_members(clan_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.user_id, m.role, m.joined_at, u.name, u.code
+            FROM clan_members m
+            LEFT JOIN users u ON u.user_id = m.user_id
+            WHERE m.clan_id = ?
+            ORDER BY (m.role = 'owner') DESC, m.joined_at ASC
+            """,
+            (clan_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_clan_member(clan_id, user_id, role="member"):
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO clan_members (clan_id, user_id, role)
+            VALUES (?, ?, ?)
+            """,
+            (clan_id, user_id, role),
+        )
+
+
+def remove_clan_member(clan_id, user_id):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM clan_members WHERE clan_id = ? AND user_id = ?",
+            (clan_id, user_id),
+        )
+        return cur.rowcount
+
+
+def is_clan_owner(clan_id, user_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM clan_members WHERE clan_id = ? AND user_id = ? AND role = 'owner'",
+            (clan_id, user_id),
+        ).fetchone()
+    return row is not None
+
+
+def delete_clan(clan_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM clan_members WHERE clan_id = ?", (clan_id,))
+        conn.execute("DELETE FROM clans WHERE id = ?", (clan_id,))
